@@ -50,6 +50,11 @@
 #include "components/spectator.h"
 #include "components/voting.h"
 
+//C-Client Add
+#include "components/gskins.h"
+#include "components/pskins.h"
+#include "components/optistats.h"
+
 CGameClient g_GameClient;
 
 // instanciate all systems
@@ -83,6 +88,11 @@ static CMapImages gs_MapImages;
 
 static CMapLayers gs_MapLayersBackGround(CMapLayers::TYPE_BACKGROUND);
 static CMapLayers gs_MapLayersForeGround(CMapLayers::TYPE_FOREGROUND);
+
+//C-Client Add
+static CgSkins gs_gSkins;
+static CpSkins gs_pSkins;
+static COptiStats gs_OptiStats;
 
 CGameClient::CStack::CStack() { m_Num = 0; }
 void CGameClient::CStack::Add(class CComponent *pComponent) { m_paComponents[m_Num++] = pComponent; }
@@ -127,6 +137,11 @@ void CGameClient::OnConsoleInit()
 	m_pItems = &::gs_Items;
 	m_pMapLayersBackGround = &::gs_MapLayersBackGround;
 	m_pMapLayersForeGround = &::gs_MapLayersForeGround;
+	
+	// C-Client Add
+	m_pgSkins = &::gs_gSkins;
+	m_ppSkins = &::gs_pSkins;
+	m_pOptiStats = &::gs_OptiStats;
 
 	// make a list of all the systems, make sure to add them in the corrent render order
 	m_All.Add(m_pSkins);
@@ -158,9 +173,13 @@ void CGameClient::OnConsoleInit()
 	m_All.Add(&gs_Broadcast);
 	m_All.Add(&gs_DebugHud);
 	m_All.Add(&gs_Scoreboard);
+	m_All.Add(m_pOptiStats); // C-Client Add(Ordered)
 	m_All.Add(m_pMotd);
 	m_All.Add(m_pMenus);
 	m_All.Add(m_pGameConsole);
+	// C-Client Add
+	m_All.Add(m_pgSkins);
+	m_All.Add(m_ppSkins);
 
 	// build the input stack
 	m_Input.Add(&m_pMenus->m_Binder); // this will take over all input when we want to bind a key
@@ -221,7 +240,12 @@ void CGameClient::OnConsoleInit()
 void CGameClient::OnInit()
 {
 	m_pGraphics = Kernel()->RequestInterface<IGraphics>();
-
+	
+	// Antiping
+	m_Average_Prediction_Offset = -1;
+	m_Prediction_Offset_Summ = 0;
+	m_Prediction_Offset_Count = 0;
+	
 	// propagate pointers
 	m_UI.SetGraphics(Graphics(), TextRender());
 	m_RenderTools.m_pGraphics = Graphics();
@@ -240,7 +264,7 @@ void CGameClient::OnInit()
 	// load default font
 	static CFont *pDefaultFont = 0;
 	char aFilename[512];
-	IOHANDLE File = Storage()->OpenFile("fonts/DejaVuSans.ttf", IOFLAG_READ, IStorage::TYPE_ALL, aFilename, sizeof(aFilename));
+	IOHANDLE File = Storage()->OpenFile("fonts/wqy-microhei.ttf", IOFLAG_READ, IStorage::TYPE_ALL, aFilename, sizeof(aFilename));
 	if(File)
 	{
 		io_close(File);
@@ -248,8 +272,8 @@ void CGameClient::OnInit()
 		TextRender()->SetDefaultFont(pDefaultFont);
 	}
 	if(!pDefaultFont)
-		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "gameclient", "failed to load font. filename='fonts/DejaVuSans.ttf'");
-
+		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "gameclient", "failed to load font. filename='fonts/wqy-microhei.ttf'");
+		
 	// init all components
 	for(int i = m_All.m_Num-1; i >= 0; --i)
 		m_All.m_paComponents[i]->OnInit();
@@ -270,15 +294,19 @@ void CGameClient::OnInit()
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "gameclient", aBuf);
 
 	m_ServerMode = SERVERMODE_PURE;
+	
+	//C-Client Add
+	g_pData->m_aImages[IMAGE_GAME].m_Id = m_pgSkins->Get(m_pgSkins->Find(g_Config.m_GameTexture))->m_Texture; 
+	g_pData->m_aImages[IMAGE_PARTICLES].m_Id = m_ppSkins->Get(m_ppSkins->Find(g_Config.m_GameParticles))->m_Texture; 
 }
 
 void CGameClient::DispatchInput()
 {
 	// handle mouse movement
 	float x = 0.0f, y = 0.0f;
-	Input()->MouseRelative(&x, &y);
-	if(x != 0.0f || y != 0.0f)
+	if(Input()->MouseMoved())
 	{
+		Input()->GetMousePosition(&x, &y);
 		for(int h = 0; h < m_Input.m_Num; h++)
 		{
 			if(m_Input.m_paComponents[h]->OnMouseMove(x, y))
@@ -358,18 +386,28 @@ void CGameClient::UpdatePositions()
 	// local character position
 	if(g_Config.m_ClPredict && Client()->State() != IClient::STATE_DEMOPLAYBACK)
 	{
-		if(!m_Snap.m_pLocalCharacter || (m_Snap.m_pGameInfoObj && m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER))
+		if(!(m_Snap.m_pGameInfoObj && m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER))
 		{
-			// don't use predicted
+			if (m_Snap.m_pLocalCharacter)
+				m_LocalCharacterPos = mix(m_PredictedPrevChar.m_Pos, m_PredictedChar.m_Pos, Client()->PredIntraGameTick());
 		}
-		else
-			m_LocalCharacterPos = mix(m_PredictedPrevChar.m_Pos, m_PredictedChar.m_Pos, Client()->PredIntraGameTick());
 	}
 	else if(m_Snap.m_pLocalCharacter && m_Snap.m_pLocalPrevCharacter)
 	{
 		m_LocalCharacterPos = mix(
 			vec2(m_Snap.m_pLocalPrevCharacter->m_X, m_Snap.m_pLocalPrevCharacter->m_Y),
 			vec2(m_Snap.m_pLocalCharacter->m_X, m_Snap.m_pLocalCharacter->m_Y), Client()->IntraGameTick());
+	}
+	
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if (!m_Snap.m_aCharacters[i].m_Active)
+			continue;
+
+		if (m_Snap.m_pLocalCharacter && m_Snap.m_pLocalPrevCharacter && g_Config.m_ClPredict /* && g_Config.m_AntiPing */ && !g_Config.m_GameShowGhost && !(m_Snap.m_LocalClientID == -1 || !m_Snap.m_aCharacters[m_Snap.m_LocalClientID].m_Active))
+			m_Snap.m_aCharacters[i].m_Position = mix(m_aClients[i].m_PrevPredicted.m_Pos, m_aClients[i].m_Predicted.m_Pos, Client()->PredIntraGameTick());
+		else
+			m_Snap.m_aCharacters[i].m_Position = mix(vec2(m_Snap.m_aCharacters[i].m_Prev.m_X, m_Snap.m_aCharacters[i].m_Prev.m_Y), vec2(m_Snap.m_aCharacters[i].m_Cur.m_X, m_Snap.m_aCharacters[i].m_Cur.m_Y), Client()->IntraGameTick());
 	}
 
 	// spectator position
@@ -577,6 +615,7 @@ void CGameClient::OnGameOver()
 
 void CGameClient::OnStartGame()
 {
+	m_pOptiStats->OnReset();
 	if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		Client()->DemoRecorder_HandleAutoStart();
 }
@@ -682,6 +721,10 @@ void CGameClient::OnNewSnapshot()
 	{
 		m_Snap.m_aTeamSize[TEAM_RED] = m_Snap.m_aTeamSize[TEAM_BLUE] = 0;
 
+		// Optimod-Stats
+		for(int i = 0; i < MAX_CLIENTS; i++)
+			m_aStats[i].m_Active = false;
+			
 		int Num = Client()->SnapNumItems(IClient::SNAP_CURRENT);
 		for(int i = 0; i < Num; i++)
 		{
@@ -749,11 +792,14 @@ void CGameClient::OnNewSnapshot()
 						m_Snap.m_SpecInfo.m_Active = true;
 						m_Snap.m_SpecInfo.m_SpectatorID = SPEC_FREEVIEW;
 					}
+					else //Optimod-Stats
+						m_aStats[pInfo->m_ClientID].m_Active = true;
 				}
 
 				// calculate team-balance
 				if(pInfo->m_Team != TEAM_SPECTATORS)
 					m_Snap.m_aTeamSize[pInfo->m_Team]++;
+					m_aStats[pInfo->m_ClientID].m_Active = true;
 
 			}
 			else if(Item.m_Type == NETOBJTYPE_CHARACTER)
@@ -780,17 +826,36 @@ void CGameClient::OnNewSnapshot()
 			}
 			else if(Item.m_Type == NETOBJTYPE_GAMEINFO)
 			{
-				static bool s_GameOver = 0;
+				static bool s_GameOver = false;
 				m_Snap.m_pGameInfoObj = (const CNetObj_GameInfo *)pData;
 				if(!s_GameOver && m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER)
 					OnGameOver();
 				else if(s_GameOver && !(m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER))
 					OnStartGame();
 				s_GameOver = m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER;
+				
+				// Fix Restart Stats
+				static int s_TickState = 0;
+				static int s_PrevRoundStartTick = 0;
+				int RoundStartTick = m_Snap.m_pGameInfoObj->m_RoundStartTick;
+				if (s_TickState == 0 && s_PrevRoundStartTick != RoundStartTick)
+					s_TickState = 1;
+				else if (s_TickState == 1 && s_PrevRoundStartTick == RoundStartTick)
+				{
+					// This is where the game restarted
+					m_pOptiStats->OnReset();
+					s_TickState = 0;
+				}
+				s_PrevRoundStartTick = RoundStartTick;
+
 			}
 			else if(Item.m_Type == NETOBJTYPE_GAMEDATA)
 			{
-				m_Snap.m_pGameDataObj = (const CNetObj_GameData *)pData;
+				static int s_FlagCarrierRed = FLAG_ATSTAND;
+				static int s_FlagCarrierBlue = FLAG_ATSTAND;
+				const CNetObj_GameData *pGameData = (const CNetObj_GameData *)pData;
+				
+				m_Snap.m_pGameDataObj = pGameData;
 				m_Snap.m_GameDataSnapID = Item.m_ID;
 				if(m_Snap.m_pGameDataObj->m_FlagCarrierRed == FLAG_TAKEN)
 				{
@@ -806,9 +871,29 @@ void CGameClient::OnNewSnapshot()
 				}
 				else if(m_FlagDropTick[TEAM_BLUE] != 0)
 						m_FlagDropTick[TEAM_BLUE] = 0;
+
+				if(s_FlagCarrierRed == FLAG_ATSTAND && pGameData->m_FlagCarrierRed >= 0)
+					OnFlagGrab(TEAM_RED);
+				else if(s_FlagCarrierBlue == FLAG_ATSTAND && pGameData->m_FlagCarrierBlue >= 0)
+					OnFlagGrab(TEAM_BLUE);
+
+				s_FlagCarrierRed = pGameData->m_FlagCarrierRed;
+				s_FlagCarrierBlue = pGameData->m_FlagCarrierBlue;
 			}
 			else if(Item.m_Type == NETOBJTYPE_FLAG)
 				m_Snap.m_paFlags[Item.m_ID%2] = (const CNetObj_Flag *)pData;
+		}
+		
+		// Optimod-Stats
+		for(int i = 0; i < MAX_CLIENTS; i++)
+		{
+			if(m_aStats[i].m_Active && !m_aStats[i].m_WasActive)
+			{
+				m_aStats[i].Reset(); // Client connected, reset stats.
+				m_aStats[i].m_Active = true;
+				m_aStats[i].m_JoinDate = Client()->GameTick();
+			}
+			m_aStats[i].m_WasActive = m_aStats[i].m_Active;
 		}
 	}
 
@@ -951,6 +1036,9 @@ void CGameClient::OnPredict()
 		{
 			if(!World.m_apCharacters[c])
 				continue;
+				
+			if(Tick == Client()->PredGameTick())
+				g_GameClient.m_aClients[c].m_PrevPredicted = *World.m_apCharacters[c];
 
 			mem_zero(&World.m_apCharacters[c]->m_Input, sizeof(World.m_apCharacters[c]->m_Input));
 			if(m_Snap.m_LocalClientID == c)
@@ -1003,7 +1091,17 @@ void CGameClient::OnPredict()
 		}
 
 		if(Tick == Client()->PredGameTick() && World.m_apCharacters[m_Snap.m_LocalClientID])
+		{
 			m_PredictedChar = *World.m_apCharacters[m_Snap.m_LocalClientID];
+
+			for (int c = 0; c < MAX_CLIENTS; c++)
+			{
+				if(!World.m_apCharacters[c])
+					continue;
+
+				g_GameClient.m_aClients[c].m_Predicted = *World.m_apCharacters[c];
+			}
+		}
 	}
 
 	if(g_Config.m_Debug && g_Config.m_ClPredict && m_PredictedTick == Client()->PredGameTick())
@@ -1074,6 +1172,45 @@ void CGameClient::CClientData::Reset()
 	m_SkinInfo.m_ColorFeet = vec4(1,1,1,1);
 	UpdateRenderInfo();
 }
+
+//Optimod-Stats
+
+void CGameClient::OnFlagGrab(int ID)
+{
+	dbg_msg("TEST", "GRAB!!!");
+	if(ID == TEAM_RED)
+		m_aStats[m_Snap.m_pGameDataObj->m_FlagCarrierRed].m_FlagGrabs++;
+	else
+		m_aStats[m_Snap.m_pGameDataObj->m_FlagCarrierBlue].m_FlagGrabs++;
+}
+
+CGameClient::CClientStats::CClientStats()
+{
+	Reset();
+}
+
+void CGameClient::CClientStats::Reset()
+{
+	m_JoinDate  = 0;
+	m_Active    = false;
+	m_WasActive = false;
+	m_Kills     = 0;
+	m_Deaths    = 0;
+	m_Suicides  = 0;
+	m_BestSpree = 0;
+	m_CurrentSpree = 0;
+	for(int j = 0; j < NUM_WEAPONS; j++)
+	{
+		m_aKillsWith[j]  = 0;
+		m_aDeathsFrom[j] = 0;
+	}
+	m_FlagGrabs      = 0;
+	m_FlagCaptures   = 0;
+	m_CarriersKilled = 0;
+	m_KillsCarrying  = 0;
+	m_DeathsCarrying = 0;
+}
+
 
 void CGameClient::SendSwitchTeam(int Team)
 {

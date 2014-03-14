@@ -55,6 +55,30 @@ MACRO_CONFIG_INT(UiColorAlpha, ui_color_alpha, 228, 0, 255, CFGFLAG_CLIENT|CFGFL
 
 MACRO_CONFIG_INT(GfxNoclip, gfx_noclip, 0, 0, 1, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Disable clipping")
 
+//-C-Client-
+MACRO_CONFIG_STR(GameTexture, game_texture, 24, "default", CFGFLAG_CLIENT|CFGFLAG_SAVE, "Game Texture")
+MACRO_CONFIG_STR(GameParticles, game_particles, 24, "default", CFGFLAG_CLIENT|CFGFLAG_SAVE, "Game Particles")
+MACRO_CONFIG_INT(GameLaserInnerColor, game_laser_inner_color, 8421631, 0, 0xFFFFFF, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser inner color")
+MACRO_CONFIG_INT(GameLaserOuterColor, game_laser_outer_color, 1250112, 0, 0xFFFFFF, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser outer color")
+MACRO_CONFIG_INT(GameLaserInnerAlpha, game_laser_inner_alpha, 255, 0, 255, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser inner alpha")
+MACRO_CONFIG_INT(GameLaserOuterAlpha, game_laser_outer_alpha, 255, 0, 255, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser outer alpha")
+MACRO_CONFIG_INT(GameDotInnerColor, game_dot_inner_color, 8421631, 0, 0xFFFFFF, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser dot inner color")
+MACRO_CONFIG_INT(GameDotOuterColor, game_dot_outer_color, 1250112, 0, 0xFFFFFF, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser dot outer color")
+MACRO_CONFIG_INT(GameDotInnerAlpha, game_dot_inner_alpha, 255, 0, 255, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser dot inner alpha")
+MACRO_CONFIG_INT(GameDotOuterAlpha, game_dot_outer_alpha, 255, 0, 255, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Laser dot outer alpha")
+MACRO_CONFIG_INT(GameShowGhost, game_show_ghost, 0, 0, 2, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Show ghost")
+MACRO_CONFIG_INT(GameAntiPing, game_antiping, 0, 0, 2, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Antiping")
+MACRO_CONFIG_INT(GameAntiPingTeeColor, game_antiping_tee_color, 1, 0, 1, CFGFLAG_SAVE|CFGFLAG_CLIENT, "Antiping")
+MACRO_CONFIG_INT(GameAntiPingGrenade, game_antiping_grenade, 0, 0, 1, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Antiping")
+MACRO_CONFIG_INT(GamePlayerColorGhost, game_player_color_ghost, 65408, 0, 0xFFFFFF, CFGFLAG_SAVE|CFGFLAG_CLIENT, "")
+MACRO_CONFIG_INT(GamePlayerColorGhostAlpha, game_player_color_ghost_alpha, 228, 0, 255, CFGFLAG_SAVE|CFGFLAG_CLIENT, "")
+//Optimod
+
+MACRO_CONFIG_INT(OpStatboardInfos, op_statboard_infos, 1335, 1, 2047, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Mask of infos to display on the global statboard")
+
+MACRO_CONFIG_INT(OpStatScreenshot, op_stat_screenshot, 0, 0, 1, CFGFLAG_CLIENT|CFGFLAG_SAVE, "Automatically take game over statboard screenshot")
+MACRO_CONFIG_INT(OpStatScreenshotMax, op_stat_screenshot_max, 10, 0, 1000, CFGFLAG_SAVE|CFGFLAG_CLIENT, "Maximum number of automatically created statboard screenshots (0 = no limit)")
+
 // server
 MACRO_CONFIG_INT(SvWarmup, sv_warmup, 0, 0, 0, CFGFLAG_SERVER, "Number of seconds to do warmup before round starts")
 MACRO_CONFIG_STR(SvMotd, sv_motd, 900, "", CFGFLAG_SERVER, "Message of the day to display for the clients")

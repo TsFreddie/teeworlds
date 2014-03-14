@@ -58,6 +58,7 @@ void CChat::OnStateChange(int NewState, int OldState)
 	if(OldState <= IClient::STATE_CONNECTING)
 	{
 		m_Mode = MODE_NONE;
+		Input()->SetIME(false);
 		for(int i = 0; i < MAX_LINES; i++)
 			m_aLines[i].m_Time = 0;
 		m_CurrentLine = 0;
@@ -102,38 +103,55 @@ bool CChat::OnInput(IInput::CEvent Event)
 {
 	if(m_Mode == MODE_NONE)
 		return false;
-
+		
+	// Fix Reconnect
+	if (!Input()->GetIME()) Input()->SetIME(true);
+		
+	if(Input()->KeyPressed(KEY_LCTRL) && Input()->KeyDown(KEY_V))
+	{
+		const char *text = Input()->GetClipboardText();
+		// if the text has more than one line, we send all lines except the last one
+		// the last one is set as in the text field
+		char Line[256];
+		int i, Begin = 0;
+		for(i = 0; i < str_length(text); i++)
+		{
+			if(text[i] == '\n')
+			{
+				int max = i - Begin + 1;
+				if(max > (int)sizeof(Line))
+					max = sizeof(Line);
+				str_copy(Line, text + Begin, max);
+				Begin = i+1;
+				SayChat(Line);
+			    while(text[i] == '\n') i++;
+			}
+		}
+		int max = i - Begin + 1;
+		if(max > (int)sizeof(Line))
+			max = sizeof(Line);
+		str_copy(Line, text + Begin, max);
+		Begin = i+1;
+		m_Input.Add(Line);
+	}
+	
+	if(Input()->KeyPressed(KEY_LCTRL) && Input()->KeyDown(KEY_C))
+	{
+		Input()->SetClipboardText(m_Input.GetString());
+	}
+	
 	if(Event.m_Flags&IInput::FLAG_PRESS && Event.m_Key == KEY_ESCAPE)
 	{
 		m_Mode = MODE_NONE;
+		Input()->SetIME(false);
 		m_pClient->OnRelease();
 	}
 	else if(Event.m_Flags&IInput::FLAG_PRESS && (Event.m_Key == KEY_RETURN || Event.m_Key == KEY_KP_ENTER))
 	{
-		if(m_Input.GetString()[0])
-		{
-			bool AddEntry = false;
-
-			if(m_LastChatSend+time_freq() < time_get())
-			{
-				Say(m_Mode == MODE_ALL ? 0 : 1, m_Input.GetString());
-				AddEntry = true;
-			}
-			else if(m_PendingChatCounter < 3)
-			{
-				++m_PendingChatCounter;
-				AddEntry = true;
-			}
-
-			if(AddEntry)
-			{
-				CHistoryEntry *pEntry = m_History.Allocate(sizeof(CHistoryEntry)+m_Input.GetLength());
-				pEntry->m_Team = m_Mode == MODE_ALL ? 0 : 1;
-				mem_copy(pEntry->m_aText, m_Input.GetString(), m_Input.GetLength()+1);
-			}
-		}
+		SayChat(m_Input.GetString());
 		m_pHistoryEntry = 0x0;
 		m_Mode = MODE_NONE;
+		Input()->SetIME(false);
 		m_pClient->OnRelease();
 	}
 	if(Event.m_Flags&IInput::FLAG_PRESS && Event.m_Key == KEY_TAB)
@@ -218,6 +236,7 @@ bool CChat::OnInput(IInput::CEvent Event)
 		m_Input.ProcessInput(Event);
 		m_InputUpdate = true;
 	}
+	
 	if(Event.m_Flags&IInput::FLAG_PRESS && Event.m_Key == KEY_UP)
 	{
 		if(m_pHistoryEntry)
@@ -259,7 +278,7 @@ void CChat::EnableMode(int Team)
 			m_Mode = MODE_TEAM;
 		else
 			m_Mode = MODE_ALL;
-
+		Input()->SetIME(true);
 		m_Input.Clear();
 		Input()->ClearEvents();
 		m_CompletionChosen = -1;
@@ -436,50 +455,56 @@ void CChat::OnRender()
 			TextRender()->TextEx(&Cursor, Localize("Chat"), -1);
 
 		TextRender()->TextEx(&Cursor, ": ", -1);
-
+		bool Editing = false;
+		int EditingCursor = Input()->GetEditingCursor();
+		if (Input()->GetIME())
+			if(str_length(Input()->GetEditingText()))
+			{
+				m_Input.Editing(Input()->GetEditingText(), EditingCursor);
+				Editing = true;
+			}
 		// check if the visible text has to be moved
 		if(m_InputUpdate)
 		{
-			if(m_ChatStringOffset > 0 && m_Input.GetLength() < m_OldChatStringLength)
-				m_ChatStringOffset = max(0, m_ChatStringOffset-(m_OldChatStringLength-m_Input.GetLength()));
-
-			if(m_ChatStringOffset > m_Input.GetCursorOffset())
-				m_ChatStringOffset -= m_ChatStringOffset-m_Input.GetCursorOffset();
+			if(m_ChatStringOffset > 0 && m_Input.GetLength(Editing) < m_OldChatStringLength)
+					m_ChatStringOffset = max(0, m_ChatStringOffset-(m_OldChatStringLength-m_Input.GetLength(Editing)));
+			
+			if(m_ChatStringOffset > m_Input.GetCursorOffset(Editing))
+				m_ChatStringOffset -= m_ChatStringOffset-m_Input.GetCursorOffset(Editing);
 			else
 			{
 				CTextCursor Temp = Cursor;
 				Temp.m_Flags = 0;
-				TextRender()->TextEx(&Temp, m_Input.GetString()+m_ChatStringOffset, m_Input.GetCursorOffset()-m_ChatStringOffset);
+				TextRender()->TextEx(&Temp, m_Input.GetString(Editing)+m_ChatStringOffset, m_Input.GetCursorOffset(Editing)-m_ChatStringOffset);
 				TextRender()->TextEx(&Temp, "|", -1);
 				while(Temp.m_LineCount > 2)
 				{
 					++m_ChatStringOffset;
 					Temp = Cursor;
 					Temp.m_Flags = 0;
-					TextRender()->TextEx(&Temp, m_Input.GetString()+m_ChatStringOffset, m_Input.GetCursorOffset()-m_ChatStringOffset);
+					TextRender()->TextEx(&Temp, m_Input.GetString(Editing)+m_ChatStringOffset, m_Input.GetCursorOffset(Editing)-m_ChatStringOffset);
 					TextRender()->TextEx(&Temp, "|", -1);
 				}
 			}
 			m_InputUpdate = false;
 		}
-
-		TextRender()->TextEx(&Cursor, m_Input.GetString()+m_ChatStringOffset, m_Input.GetCursorOffset()-m_ChatStringOffset);
+		TextRender()->TextEx(&Cursor, m_Input.GetString(Editing)+m_ChatStringOffset, m_Input.GetCursorOffset(Editing)-m_ChatStringOffset);
 		static float MarkerOffset = TextRender()->TextWidth(0, 8.0f, "|", -1)/3;
 		CTextCursor Marker = Cursor;
 		Marker.m_X -= MarkerOffset;
 		TextRender()->TextEx(&Marker, "|", -1);
-		TextRender()->TextEx(&Cursor, m_Input.GetString()+m_Input.GetCursorOffset(), -1);
+		TextRender()->TextEx(&Cursor, m_Input.GetString(Editing)+m_Input.GetCursorOffset(Editing), -1);
 	}
 
 	y -= 8.0f;
 
 	int64 Now = time_get();
-	float LineWidth = m_pClient->m_pScoreboard->Active() ? 90.0f : 200.0f;
-	float HeightLimit = m_pClient->m_pScoreboard->Active() ? 230.0f : m_Show ? 50.0f : 200.0f;
+	float LineWidth = /*m_pClient->m_pScoreboard->Active() ? 90.0f :*/ 200.0f;
+	float HeightLimit =/* m_pClient->m_pScoreboard->Active() ? 230.0f : m_Show ? 50.0f : */200.0f;
 	float Begin = x;
 	float FontSize = 6.0f;
 	CTextCursor Cursor;
-	int OffsetType = m_pClient->m_pScoreboard->Active() ? 1 : 0;
+	int OffsetType =/* m_pClient->m_pScoreboard->Active() ? 1 :*/ 0;
 	for(int i = 0; i < MAX_LINES; i++)
 	{
 		int r = ((m_CurrentLine-i)+MAX_LINES)%MAX_LINES;
@@ -548,4 +573,30 @@ void CChat::Say(int Team, const char *pLine)
 	Msg.m_Team = Team;
 	Msg.m_pMessage = pLine;
 	Client()->SendPackMsg(&Msg, MSGFLAG_VITAL);
+}
+
+void CChat::SayChat(const char *pLine)
+{
+	if(!pLine || str_length(pLine) < 1)
+		return;
+
+	bool AddEntry = false;
+
+	if(m_LastChatSend+time_freq() < time_get())
+	{
+		Say(m_Mode == MODE_ALL ? 0 : 1, pLine);
+		AddEntry = true;
+	}
+	else if(m_PendingChatCounter < 3)
+	{
+		++m_PendingChatCounter;
+		AddEntry = true;
+	}
+
+	if(AddEntry)
+	{
+		CHistoryEntry *pEntry = m_History.Allocate(sizeof(CHistoryEntry)+str_length(pLine)-1);
+		pEntry->m_Team = m_Mode == MODE_ALL ? 0 : 1;
+		mem_copy(pEntry->m_aText, pLine, str_length(pLine));
+	}
 }

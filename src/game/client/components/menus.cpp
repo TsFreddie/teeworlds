@@ -70,6 +70,7 @@ CMenus::CMenus()
 	m_aCallvoteReason[0] = 0;
 
 	m_FriendlistSelectedIndex = -1;
+	TempSens = 0.0f;
 }
 
 vec4 CMenus::ButtonColorMul(const void *pID)
@@ -193,12 +194,17 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 	bool UpdateOffset = false;
 	static int s_AtIndex = 0;
 	static bool s_DoScroll = false;
-	static float s_ScrollStart = 0.0f;
 
 	FontSize *= UI()->Scale();
-
 	if(UI()->LastActiveItem() == pID)
 	{
+		static float s_ScrollStart = 0.0f;
+
+		if(Input()->KeyPressed(KEY_LCTRL) && Input()->KeyDown(KEY_C))
+		{
+			Input()->SetClipboardText(pStr);
+		}
+		
 		int Len = str_length(pStr);
 		if(Len == 0)
 			s_AtIndex = 0;
@@ -221,6 +227,7 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 					s_AtIndex = Len;
 			}
 		}
+
 		else if(!UI()->MouseButton(0))
 			s_DoScroll = false;
 		else if(s_DoScroll)
@@ -239,7 +246,27 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 				UpdateOffset = true;
 			}
 		}
-
+		
+		if(Input()->KeyPressed(KEY_LCTRL) && Input()->KeyDown(KEY_V))
+		{
+			const char *Text = Input()->GetClipboardText();
+			
+			int NewTextLen = str_length(Text);
+			int CharsLeft = StrSize - str_length(pStr) - 1;
+			int FillCharLen = min(NewTextLen, CharsLeft);
+			//Push Char Backward
+			for(int i = str_length(pStr) - 1; i >= s_AtIndex ; i--)
+				pStr[i+FillCharLen] = pStr[i];
+			for(int i = 0; i < FillCharLen; i++)
+			{
+				if(Text[i] == '\n')
+					pStr[s_AtIndex + i] = ' ';
+				else
+					pStr[s_AtIndex + i] = Text[i];
+			}
+			s_AtIndex = s_AtIndex+FillCharLen;	
+		}
+		
 		for(int i = 0; i < m_NumInputEvents; i++)
 		{
 			Len = str_length(pStr);
@@ -290,6 +317,31 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 		aStars[s] = 0;
 		pDisplayStr = aStars;
 	}
+	
+	char aInputing[255] = {0};
+	if(UI()->HotItem() == pID && Input()->GetIME())
+	{
+		str_format(aInputing, sizeof(aInputing), pStr);
+		const char *Text = Input()->GetEditingText();
+		if (str_length(Text))
+		{
+		int NewTextLen = str_length(Text);
+		int CharsLeft = StrSize - str_length(aInputing) - 1;
+		int FillCharLen = min(NewTextLen, CharsLeft);
+		//Push Char Backward
+		for(int i = str_length(aInputing); i >= s_AtIndex ; i--)
+			aInputing[i+FillCharLen] = aInputing[i];
+		for(int i = 0; i < FillCharLen; i++)
+		{
+			if(Text[i] == '\n')
+				aInputing[s_AtIndex + i] = ' ';
+			else
+				aInputing[s_AtIndex + i] = Text[i];
+		}
+		//s_AtIndex = s_AtIndex+FillCharLen;	
+		pDisplayStr = aInputing;
+		}
+	}
 
 	// check if the text has to be moved
 	if(UI()->LastActiveItem() == pID && !JustGotActive && (UpdateOffset || m_NumInputEvents))
@@ -319,10 +371,18 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 	Textbox.x -= *Offset;
 
 	UI()->DoLabel(&Textbox, pDisplayStr, FontSize, -1);
-
 	// render the cursor
 	if(UI()->LastActiveItem() == pID && !JustGotActive)
 	{
+		if (str_length(aInputing))
+		{
+			float w = TextRender()->TextWidth(0, FontSize, pDisplayStr, s_AtIndex + Input()->GetEditingCursor());
+			Textbox = *pRect;
+			Textbox.VSplitLeft(2.0f, 0, &Textbox);
+			Textbox.x += (w-*Offset-TextRender()->TextWidth(0, FontSize, "|", -1)/2);
+
+			UI()->DoLabel(&Textbox, "|", FontSize, -1);
+		}
 		float w = TextRender()->TextWidth(0, FontSize, pDisplayStr, s_AtIndex);
 		Textbox = *pRect;
 		Textbox.VSplitLeft(2.0f, 0, &Textbox);
@@ -334,6 +394,91 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 	UI()->ClipDisable();
 
 	return ReturnValue;
+}
+
+int CMenus::DoCoolScrollbarH(const void *pID, const CUIRect *pRect, int Real, float Min, float Max, int ShowNumber)
+{
+	CUIRect Handle;
+	static float OffsetX;
+	pRect->VSplitLeft(33, &Handle, 0);
+	float Current = (clamp(Real, int(Min), int(Max)) - Min)/(Max - Min);
+	
+	Handle.x += (pRect->w-Handle.w)*Current;
+
+	// logic
+	float ReturnValue = Current;
+	int Inside = UI()->MouseInside(&Handle);
+
+	int MovedNow = 0;
+
+	if(UI()->ActiveItem() == pID)
+	{
+		if(!UI()->MouseButton(0))
+			UI()->SetActiveItem(0);
+
+		float Min = pRect->x;
+		float Max = pRect->w-Handle.w;
+		float Cur = UI()->MouseX()-OffsetX;
+		ReturnValue = (Cur-Min)/Max;
+		if(ReturnValue < 0.0f) ReturnValue = 0.0f;
+		if(ReturnValue > 1.0f) ReturnValue = 1.0f;
+		MovedNow = 1;
+	}
+	else if(UI()->HotItem() == pID)
+	{
+		if(UI()->MouseButton(0))
+		{
+			UI()->SetActiveItem(pID);
+			OffsetX = UI()->MouseX()-Handle.x;
+		}
+	}
+
+	if(ShowNumber)
+	{
+		// Text under button
+		CUIRect Number = Handle;
+		Number.y = Handle.y-Handle.h-2;
+		Number.h = Handle.h+2;
+		
+		char aBuf[128];
+		str_format(aBuf, sizeof(aBuf), "%d", Real);
+		
+		CUIRect Background = Number;
+		Background.HMargin(2.0f, &Background);
+		RenderTools()->DrawUIRect(&Background, vec4(1.0f, 1.0f, 1.0f, 0.5f), CUI::CORNER_ALL, 4.0f);
+		
+		Number.HMargin(4.0f, &Number);
+		float tw = TextRender()->TextWidth(0, 14, aBuf, -1);
+		
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		TextRender()->Text(0, Number.x + Number.w/2-tw/2, Number.y-Number.h/2, 14, aBuf, -1);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
+	if(Inside)
+		UI()->SetHotItem(pID);
+		
+	vec4 RailColor = mix(vec4(1.0f, 1.0f, 1.0f, 0.10f), vec4(1.0f, 1.0f, 1.0f, 0.35f), 0.6f);
+		
+	// render
+	CUIRect Rail;
+	pRect->HMargin(5.0f, &Rail);
+	RenderTools()->DrawUIRect(&Rail, RailColor, 0, 0.0f);
+
+	CUIRect Slider = Handle;
+	Slider.h = Rail.y-Slider.y;
+	RenderTools()->DrawUIRect(&Slider, RailColor, CUI::CORNER_T, 2.5f);
+	Slider.y = Rail.y+Rail.h;
+	RenderTools()->DrawUIRect(&Slider, RailColor, CUI::CORNER_B, 2.5f);
+	
+	vec4 ButtColor = mix(vec4(1.0f, 1.0f, 1.0f, 0.25f), vec4(1.0f, 1.0f, 1.0f, 0.75f), 0.6f);
+	
+	Slider = Handle;
+	Slider.Margin(5.0f, &Slider);
+	RenderTools()->DrawUIRect(&Slider, ButtColor, CUI::CORNER_ALL, 2.5f);
+
+	ReturnValue = ReturnValue*(Max-Min) + Min;
+	return (int)ReturnValue;
 }
 
 float CMenus::DoScrollbarV(const void *pID, const CUIRect *pRect, float Current)
@@ -1323,6 +1468,7 @@ int CMenus::Render()
 
 void CMenus::SetActive(bool Active)
 {
+	Input()->SetIME(Active);
 	m_MenuActive = Active;
 	if(!m_MenuActive)
 	{
@@ -1353,14 +1499,13 @@ bool CMenus::OnMouseMove(float x, float y)
 
 	if(!m_MenuActive)
 		return false;
-
+		
+	Input()->SetMouseModes(0);
+	Input()->ShowCursor(g_Config.m_InpHWCursor);
+	
 	UI()->ConvertMouseMove(&x, &y);
-	m_MousePos.x += x;
-	m_MousePos.y += y;
-	if(m_MousePos.x < 0) m_MousePos.x = 0;
-	if(m_MousePos.y < 0) m_MousePos.y = 0;
-	if(m_MousePos.x > Graphics()->ScreenWidth()) m_MousePos.x = Graphics()->ScreenWidth();
-	if(m_MousePos.y > Graphics()->ScreenHeight()) m_MousePos.y = Graphics()->ScreenHeight();
+	m_MousePos.x = x;
+	m_MousePos.y = y;
 
 	return true;
 }
@@ -1474,7 +1619,7 @@ void CMenus::OnRender()
 		SetActive(true);
 		m_Popup = POPUP_PURE;
 	}
-
+		
 	if(!IsActive())
 	{
 		m_EscapePressed = false;
@@ -1524,13 +1669,16 @@ void CMenus::OnRender()
 	if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		Render();
 
-	// render cursor
-	Graphics()->TextureSet(g_pData->m_aImages[IMAGE_CURSOR].m_Id);
-	Graphics()->QuadsBegin();
-	Graphics()->SetColor(1,1,1,1);
-	IGraphics::CQuadItem QuadItem(mx, my, 24, 24);
-	Graphics()->QuadsDrawTL(&QuadItem, 1);
-	Graphics()->QuadsEnd();
+	if(!g_Config.m_InpHWCursor)
+	{
+		// render cursor
+		Graphics()->TextureSet(g_pData->m_aImages[IMAGE_CURSOR].m_Id);
+		Graphics()->QuadsBegin();
+		Graphics()->SetColor(1,1,1,1);
+		IGraphics::CQuadItem QuadItem(mx, my, 24, 24);
+		Graphics()->QuadsDrawTL(&QuadItem, 1);
+		Graphics()->QuadsEnd();
+	}
 
 	// render debug information
 	if(g_Config.m_Debug)

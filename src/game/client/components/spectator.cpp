@@ -139,7 +139,9 @@ bool CSpectator::OnMouseMove(float x, float y)
 	if(!m_Active)
 		return false;
 
-	UI()->ConvertMouseMove(&x, &y);
+	Input()->SetMouseModes(IInput::MOUSE_MODE_WARP_CENTER);
+
+	Input()->GetRelativePosition(&x, &y);
 	m_SelectorMouse += vec2(x,y);
 	return true;
 }

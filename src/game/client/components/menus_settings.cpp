@@ -24,6 +24,7 @@
 #include "countryflags.h"
 #include "menus.h"
 #include "skins.h"
+#include "gskins.h"
 
 CMenusKeyBinder CMenus::m_Binder;
 
@@ -242,177 +243,6 @@ void CMenus::RenderSettingsPlayer(CUIRect MainView)
 	}
 }
 
-void CMenus::RenderSettingsTee(CUIRect MainView)
-{
-	CUIRect Button, Label;
-	MainView.HSplitTop(10.0f, 0, &MainView);
-
-	// skin info
-	const CSkins::CSkin *pOwnSkin = m_pClient->m_pSkins->Get(m_pClient->m_pSkins->Find(g_Config.m_PlayerSkin));
-	CTeeRenderInfo OwnSkinInfo;
-	if(g_Config.m_PlayerUseCustomColor)
-	{
-		OwnSkinInfo.m_Texture = pOwnSkin->m_ColorTexture;
-		OwnSkinInfo.m_ColorBody = m_pClient->m_pSkins->GetColorV4(g_Config.m_PlayerColorBody);
-		OwnSkinInfo.m_ColorFeet = m_pClient->m_pSkins->GetColorV4(g_Config.m_PlayerColorFeet);
-	}
-	else
-	{
-		OwnSkinInfo.m_Texture = pOwnSkin->m_OrgTexture;
-		OwnSkinInfo.m_ColorBody = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		OwnSkinInfo.m_ColorFeet = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	}
-	OwnSkinInfo.m_Size = 50.0f*UI()->Scale();
-
-	MainView.HSplitTop(20.0f, &Label, &MainView);
-	Label.VSplitLeft(230.0f, &Label, 0);
-	char aBuf[128];
-	str_format(aBuf, sizeof(aBuf), "%s:", Localize("Your skin"));
-	UI()->DoLabelScaled(&Label, aBuf, 14.0f, -1);
-
-	MainView.HSplitTop(50.0f, &Label, &MainView);
-	Label.VSplitLeft(230.0f, &Label, 0);
-	RenderTools()->DrawUIRect(&Label, vec4(1.0f, 1.0f, 1.0f, 0.25f), CUI::CORNER_ALL, 10.0f);
-	RenderTools()->RenderTee(CAnimState::GetIdle(), &OwnSkinInfo, 0, vec2(1, 0), vec2(Label.x+30.0f, Label.y+28.0f));
-	Label.HSplitTop(15.0f, 0, &Label);;
-	Label.VSplitLeft(70.0f, 0, &Label);
-	UI()->DoLabelScaled(&Label, g_Config.m_PlayerSkin, 14.0f, -1, 150.0f);
-
-	// custom colour selector
-	MainView.HSplitTop(20.0f, 0, &MainView);
-	MainView.HSplitTop(20.0f, &Button, &MainView);
-	Button.VSplitLeft(230.0f, &Button, 0);
-	if(DoButton_CheckBox(&g_Config.m_PlayerColorBody, Localize("Custom colors"), g_Config.m_PlayerUseCustomColor, &Button))
-	{
-		g_Config.m_PlayerUseCustomColor = g_Config.m_PlayerUseCustomColor?0:1;
-		m_NeedSendinfo = true;
-	}
-
-	MainView.HSplitTop(5.0f, 0, &MainView);
-	MainView.HSplitTop(82.5f, &Label, &MainView);
-	if(g_Config.m_PlayerUseCustomColor)
-	{
-		CUIRect aRects[2];
-		Label.VSplitMid(&aRects[0], &aRects[1]);
-		aRects[0].VSplitRight(10.0f, &aRects[0], 0);
-		aRects[1].VSplitLeft(10.0f, 0, &aRects[1]);
-
-		int *paColors[2];
-		paColors[0] = &g_Config.m_PlayerColorBody;
-		paColors[1] = &g_Config.m_PlayerColorFeet;
-
-		const char *paParts[] = {
-			Localize("Body"),
-			Localize("Feet")};
-		const char *paLabels[] = {
-			Localize("Hue"),
-			Localize("Sat."),
-			Localize("Lht.")};
-		static int s_aColorSlider[2][3] = {{0}};
-
-		for(int i = 0; i < 2; i++)
-		{
-			aRects[i].HSplitTop(20.0f, &Label, &aRects[i]);
-			UI()->DoLabelScaled(&Label, paParts[i], 14.0f, -1);
-			aRects[i].VSplitLeft(20.0f, 0, &aRects[i]);
-			aRects[i].HSplitTop(2.5f, 0, &aRects[i]);
-
-			int PrevColor = *paColors[i];
-			int Color = 0;
-			for(int s = 0; s < 3; s++)
-			{
-				aRects[i].HSplitTop(20.0f, &Label, &aRects[i]);
-				Label.VSplitLeft(100.0f, &Label, &Button);
-				Button.HMargin(2.0f, &Button);
-
-				float k = ((PrevColor>>((2-s)*8))&0xff) / 255.0f;
-				k = DoScrollbarH(&s_aColorSlider[i][s], &Button, k);
-				Color <<= 8;
-				Color += clamp((int)(k*255), 0, 255);
-				UI()->DoLabelScaled(&Label, paLabels[s], 14.0f, -1);
-			}
-
-			if(PrevColor != Color)
-				m_NeedSendinfo = true;
-
-			*paColors[i] = Color;
-		}
-	}
-
-	// skin selector
-	MainView.HSplitTop(20.0f, 0, &MainView);
-	static bool s_InitSkinlist = true;
-	static sorted_array<const CSkins::CSkin *> s_paSkinList;
-	static float s_ScrollValue = 0.0f;
-	if(s_InitSkinlist)
-	{
-		s_paSkinList.clear();
-		for(int i = 0; i < m_pClient->m_pSkins->Num(); ++i)
-		{
-			const CSkins::CSkin *s = m_pClient->m_pSkins->Get(i);
-			// no special skins
-			if(s->m_aName[0] == 'x' && s->m_aName[1] == '_')
-				continue;
-			s_paSkinList.add(s);
-		}
-		s_InitSkinlist = false;
-	}
-
-	int OldSelected = -1;
-	UiDoListboxStart(&s_InitSkinlist, &MainView, 50.0f, Localize("Skins"), "", s_paSkinList.size(), 4, OldSelected, s_ScrollValue);
-
-	for(int i = 0; i < s_paSkinList.size(); ++i)
-	{
-		const CSkins::CSkin *s = s_paSkinList[i];
-		if(s == 0)
-			continue;
-
-		if(str_comp(s->m_aName, g_Config.m_PlayerSkin) == 0)
-			OldSelected = i;
-
-		CListboxItem Item = UiDoListboxNextItem(&s_paSkinList[i], OldSelected == i);
-		if(Item.m_Visible)
-		{
-			CTeeRenderInfo Info;
-			if(g_Config.m_PlayerUseCustomColor)
-			{
-				Info.m_Texture = s->m_ColorTexture;
-				Info.m_ColorBody = m_pClient->m_pSkins->GetColorV4(g_Config.m_PlayerColorBody);
-				Info.m_ColorFeet = m_pClient->m_pSkins->GetColorV4(g_Config.m_PlayerColorFeet);
-			}
-			else
-			{
-				Info.m_Texture = s->m_OrgTexture;
-				Info.m_ColorBody = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-				Info.m_ColorFeet = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-			}
-
-			Info.m_Size = UI()->Scale()*50.0f;
-			Item.m_Rect.HSplitTop(5.0f, 0, &Item.m_Rect); // some margin from the top
-			RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, 0, vec2(1.0f, 0.0f), vec2(Item.m_Rect.x+Item.m_Rect.w/2, Item.m_Rect.y+Item.m_Rect.h/2));
-
-			if(g_Config.m_Debug)
-			{
-				vec3 BloodColor = g_Config.m_PlayerUseCustomColor ? m_pClient->m_pSkins->GetColorV3(g_Config.m_PlayerColorBody) : s->m_BloodColor;
-				Graphics()->TextureSet(-1);
-				Graphics()->QuadsBegin();
-				Graphics()->SetColor(BloodColor.r, BloodColor.g, BloodColor.b, 1.0f);
-				IGraphics::CQuadItem QuadItem(Item.m_Rect.x, Item.m_Rect.y, 12.0f, 12.0f);
-				Graphics()->QuadsDrawTL(&QuadItem, 1);
-				Graphics()->QuadsEnd();
-			}
-		}
-	}
-
-	const int NewSelected = UiDoListboxEnd(&s_ScrollValue, 0);
-	if(OldSelected != NewSelected)
-	{
-		mem_copy(g_Config.m_PlayerSkin, s_paSkinList[NewSelected]->m_aName, sizeof(g_Config.m_PlayerSkin));
-		m_NeedSendinfo = true;
-	}
-}
-
-
 typedef void (*pfnAssignFuncCallback)(CConfiguration *pConfig, int Value);
 
 typedef struct
@@ -509,9 +339,10 @@ void CMenus::RenderSettingsControls(CUIRect MainView)
 
 	CUIRect MovementSettings, WeaponSettings, VotingSettings, ChatSettings, MiscSettings, ResetButton;
 	MainView.VSplitMid(&MovementSettings, &VotingSettings);
-
+	
 	// movement settings
 	{
+		//CUIRect Label;
 		MovementSettings.VMargin(5.0f, &MovementSettings);
 		MovementSettings.HSplitTop(MainView.h/3+60.0f, &MovementSettings, &WeaponSettings);
 		RenderTools()->DrawUIRect(&MovementSettings, vec4(1,1,1,0.25f), CUI::CORNER_ALL, 10.0f);
@@ -520,18 +351,82 @@ void CMenus::RenderSettingsControls(CUIRect MainView)
 		TextRender()->Text(0, MovementSettings.x, MovementSettings.y, 14.0f*UI()->Scale(), Localize("Movement"), -1);
 
 		MovementSettings.HSplitTop(14.0f+5.0f+10.0f, 0, &MovementSettings);
-
+		
 		{
-			CUIRect Button, Label;
-			MovementSettings.HSplitTop(20.0f, &Button, &MovementSettings);
+			CUIRect Temp, Button, Scroll, Label;
+			MovementSettings.HSplitTop(35.0f, &Button, &MovementSettings);
 			Button.VSplitLeft(135.0f, &Label, &Button);
-			UI()->DoLabel(&Label, Localize("Mouse sens."), 14.0f*UI()->Scale(), -1);
-			Button.HMargin(2.0f, &Button);
-			g_Config.m_InpMousesens = (int)(DoScrollbarH(&g_Config.m_InpMousesens, &Button, (g_Config.m_InpMousesens-5)/500.0f)*500.0f)+5;
-			//*key.key = ui_do_key_reader(key.key, &Button, *key.key);
-			MovementSettings.HSplitTop(20.0f, 0, &MovementSettings);
-		}
+			UI()->DoLabel(&Label, Localize("Ingame sens:"), 13.0f*UI()->Scale(), -1);
+			Button.HSplitBottom(15.0f, &Label, &Scroll);
 
+			Label.HSplitBottom(2.0f, &Label, 0);
+
+			Label.VSplitLeft((Label.w-10)/3, &Button, &Label);
+
+			Button.VSplitRight(42.0f, 0, &Button);
+			Button.VSplitLeft(20.0f, &Button, &Temp);
+
+			static int s_Button1 = 0;
+			if(DoButton_Menu((void*)&s_Button1, "<<", 0, &Button))
+				g_Config.m_InpMousesens -= 500;
+
+			Temp.VSplitLeft(2.0f, 0, &Button);
+
+			static int s_Button2 = 0;
+			if(DoButton_Menu((void*)&s_Button2, "<", 0, &Button))
+				g_Config.m_InpMousesens -= 100;
+
+			Label.VSplitRight(Label.w/3+20.0f, &Label, &Button);
+
+			Button.VSplitLeft(42.0f, &Button, 0);
+			Button.VSplitRight(20.0f, &Temp, &Button);
+
+			static int s_Button3 = 0;
+			if(DoButton_Menu((void*)&s_Button3, ">>", 0, &Button))
+				g_Config.m_InpMousesens += 500;
+
+			Temp.VSplitRight(2.0f, &Button, 0);
+
+			static int s_Button4 = 0;
+			if(DoButton_Menu((void*)&s_Button4, ">", 0, &Button))
+				g_Config.m_InpMousesens += 100;
+
+			Label.VMargin(2.0f, &Label);
+
+			char aBuf[10];
+			str_format(aBuf, sizeof(aBuf), "%d", g_Config.m_InpMousesens);
+			static float Offset = 0.0f;
+			static int s_Fade = 0;
+			DoEditBox(&aBuf, &Label, aBuf, sizeof(aBuf), 12.0f, &Offset, false, 0);
+			g_Config.m_InpMousesens = clamp(atoi(aBuf), 5, 10000);
+
+			if (UI()->ActiveItem() != &g_Config.m_InpMousesens)
+				TempSens = g_Config.m_InpMousesens;
+
+			float Max = TempSens + 50.0f;
+			float Min = TempSens - 50.0f;
+			if (Max > 10000.0f)
+				Max = 10000.0f;
+			if (Min < 5.0f)
+				Min = 5.0f;
+
+			g_Config.m_InpMousesens = DoCoolScrollbarH(&g_Config.m_InpMousesens, &Scroll, g_Config.m_InpMousesens, Min, Max, false);
+			MovementSettings.HSplitTop(8.0f, 0, &MovementSettings);
+		}
+/*
+		{			
+			CUIRect Button, Label;			
+			
+			MovementSettings.HSplitTop(20.0f, &Button, &MovementSettings);			
+			Button.VSplitLeft(135.0f, &Label, &Button);			
+			UI()->DoLabel(&Label, Localize("Menu sens:"), 13.0f*UI()->Scale(), -1);	
+
+			Button.HSplitBottom(15.0f, 0, &Button);			
+			g_Config.m_UiMousesens = DoCoolScrollbarH(&g_Config.m_UiMousesens, &Button, g_Config.m_UiMousesens ,5,500.0f, true);		
+
+			MovementSettings.HSplitTop(4.0f, 0, &MovementSettings);		
+		}		
+	*/
 		UiDoGetButtons(0, 5, MovementSettings);
 
 	}
@@ -558,7 +453,11 @@ void CMenus::RenderSettingsControls(CUIRect MainView)
 		ResetButton.HSplitTop(20.0f, &ResetButton, 0);
 		static int s_DefaultButton = 0;
 		if(DoButton_Menu((void*)&s_DefaultButton, Localize("Reset to defaults"), 0, &ResetButton))
+		{
+			g_Config.m_InpMousesens = 100;
+			g_Config.m_UiMousesens = 100;
 			m_pClient->m_pBinds->SetDefaults();
+		}
 	}
 
 	// voting settings
@@ -609,84 +508,147 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 
 	static const int MAX_RESOLUTIONS = 256;
 	static CVideoMode s_aModes[MAX_RESOLUTIONS];
-	static int s_NumNodes = Graphics()->GetVideoModes(s_aModes, MAX_RESOLUTIONS);
+	static int s_NumNodes = Graphics()->GetVideoModes(s_aModes, MAX_RESOLUTIONS, g_Config.m_GfxScreen);
 	static int s_GfxScreenWidth = g_Config.m_GfxScreenWidth;
 	static int s_GfxScreenHeight = g_Config.m_GfxScreenHeight;
 	static int s_GfxColorDepth = g_Config.m_GfxColorDepth;
 	static int s_GfxBorderless = g_Config.m_GfxBorderless;
 	static int s_GfxFullscreen = g_Config.m_GfxFullscreen;
+	static int s_GfxWindowedFullscreen = g_Config.m_GfxWindowedFullscreen;
 	static int s_GfxVsync = g_Config.m_GfxVsync;
 	static int s_GfxFsaaSamples = g_Config.m_GfxFsaaSamples;
 	static int s_GfxTextureQuality = g_Config.m_GfxTextureQuality;
 	static int s_GfxTextureCompression = g_Config.m_GfxTextureCompression;
-	static int s_GfxThreaded = g_Config.m_GfxThreaded;
 
 	CUIRect ModeList;
 	MainView.VSplitLeft(300.0f, &MainView, &ModeList);
 
-	// draw allmodes switch
-	ModeList.HSplitTop(20, &Button, &ModeList);
-	if(DoButton_CheckBox(&g_Config.m_GfxDisplayAllModes, Localize("Show only supported"), g_Config.m_GfxDisplayAllModes^1, &Button))
+	if (!g_Config.m_GfxWindowedFullscreen) //Windowed Fullscreen don't need this
 	{
-		g_Config.m_GfxDisplayAllModes ^= 1;
-		s_NumNodes = Graphics()->GetVideoModes(s_aModes, MAX_RESOLUTIONS);
-	}
-
-	// display mode list
-	static float s_ScrollValue = 0;
-	int OldSelected = -1;
-	int G = gcd(s_GfxScreenWidth, s_GfxScreenHeight);
-	str_format(aBuf, sizeof(aBuf), "%s: %dx%d %d bit (%d:%d)", Localize("Current"), s_GfxScreenWidth, s_GfxScreenHeight, s_GfxColorDepth, s_GfxScreenWidth/G, s_GfxScreenHeight/G);
-	UiDoListboxStart(&s_NumNodes , &ModeList, 24.0f, Localize("Display Modes"), aBuf, s_NumNodes, 1, OldSelected, s_ScrollValue);
-
-	for(int i = 0; i < s_NumNodes; ++i)
-	{
-		const int Depth = s_aModes[i].m_Red+s_aModes[i].m_Green+s_aModes[i].m_Blue > 16 ? 24 : 16;
-		if(g_Config.m_GfxColorDepth == Depth &&
-			g_Config.m_GfxScreenWidth == s_aModes[i].m_Width &&
-			g_Config.m_GfxScreenHeight == s_aModes[i].m_Height)
+		// draw allmodes switch
+		ModeList.HSplitTop(20, &Button, &ModeList);
+		if(DoButton_CheckBox(&g_Config.m_GfxDisplayAllModes, Localize("Show only supported"), g_Config.m_GfxDisplayAllModes^1, &Button))
 		{
-			OldSelected = i;
+			g_Config.m_GfxDisplayAllModes ^= 1;
+			s_NumNodes = Graphics()->GetVideoModes(s_aModes, MAX_RESOLUTIONS, g_Config.m_GfxScreen);
+		}
+	
+
+		// display mode list
+		static float s_ScrollValue = 0;
+		int OldSelected = -1;
+		int G = gcd(s_GfxScreenWidth, s_GfxScreenHeight);
+		str_format(aBuf, sizeof(aBuf), "%s: %dx%d %d bit (%d:%d)", Localize("Current"), s_GfxScreenWidth, s_GfxScreenHeight, s_GfxColorDepth, s_GfxScreenWidth/G, s_GfxScreenHeight/G);
+		UiDoListboxStart(&s_NumNodes , &ModeList, 24.0f, Localize("Display Modes"), aBuf, s_NumNodes, 1, OldSelected, s_ScrollValue);
+	
+		for(int i = 0; i < s_NumNodes; ++i)
+		{
+			const int Depth = s_aModes[i].m_Red+s_aModes[i].m_Green+s_aModes[i].m_Blue > 16 ? 24 : 16;
+			if(g_Config.m_GfxColorDepth == Depth &&
+				g_Config.m_GfxScreenWidth == s_aModes[i].m_Width &&
+				g_Config.m_GfxScreenHeight == s_aModes[i].m_Height)
+			{
+				OldSelected = i;
+			}
+
+			CListboxItem Item = UiDoListboxNextItem(&s_aModes[i], OldSelected == i);
+			if(Item.m_Visible)
+			{
+				int G = gcd(s_aModes[i].m_Width, s_aModes[i].m_Height);
+				str_format(aBuf, sizeof(aBuf), " %dx%d %d bit (%d:%d)", s_aModes[i].m_Width, s_aModes[i].m_Height, Depth, s_aModes[i].m_Width/G, s_aModes[i].m_Height/G);
+				UI()->DoLabelScaled(&Item.m_Rect, aBuf, 16.0f, -1);
+			}
 		}
 
-		CListboxItem Item = UiDoListboxNextItem(&s_aModes[i], OldSelected == i);
-		if(Item.m_Visible)
+		const int NewSelected = UiDoListboxEnd(&s_ScrollValue, 0);
+		if(OldSelected != NewSelected)
 		{
-			int G = gcd(s_aModes[i].m_Width, s_aModes[i].m_Height);
-			str_format(aBuf, sizeof(aBuf), " %dx%d %d bit (%d:%d)", s_aModes[i].m_Width, s_aModes[i].m_Height, Depth, s_aModes[i].m_Width/G, s_aModes[i].m_Height/G);
-			UI()->DoLabelScaled(&Item.m_Rect, aBuf, 16.0f, -1);
+			const int Depth = s_aModes[NewSelected].m_Red+s_aModes[NewSelected].m_Green+s_aModes[NewSelected].m_Blue > 16 ? 24 : 16;
+			g_Config.m_GfxColorDepth = Depth;
+			g_Config.m_GfxScreenWidth = s_aModes[NewSelected].m_Width;
+			g_Config.m_GfxScreenHeight = s_aModes[NewSelected].m_Height;
+			CheckSettings = true;
 		}
 	}
-
-	const int NewSelected = UiDoListboxEnd(&s_ScrollValue, 0);
-	if(OldSelected != NewSelected)
+	
+	int NumScreens = Graphics()->GetNumScreens();
+	if(NumScreens > 1)
 	{
-		const int Depth = s_aModes[NewSelected].m_Red+s_aModes[NewSelected].m_Green+s_aModes[NewSelected].m_Blue > 16 ? 24 : 16;
-		g_Config.m_GfxColorDepth = Depth;
-		g_Config.m_GfxScreenWidth = s_aModes[NewSelected].m_Width;
-		g_Config.m_GfxScreenHeight = s_aModes[NewSelected].m_Height;
-		CheckSettings = true;
-	}
+		MainView.HSplitTop(20.0f, &Button, &MainView);	
+		CUIRect Text;
+		Button.VSplitLeft(100.0f, &Text, &Button);
 
+		char aBuf[32];
+		str_format(aBuf, sizeof(aBuf), "%s:", Localize("Screen"));
+		Text.y += 2.0f;
+		UI()->DoLabel(&Text, aBuf, Text.h*ms_FontmodHeight*0.8f, -1);
+
+		Button.VSplitLeft(70.0f, &Button, 0);
+		str_format(aBuf, sizeof(aBuf), "%d", g_Config.m_GfxScreen + 1);
+		static int s_ButtonGfxScreen = 0;
+		if(DoButton_Menu(&s_ButtonGfxScreen, aBuf, 0, &Button))
+		{
+			if(g_Config.m_GfxScreen + 1 >= NumScreens)
+				g_Config.m_GfxScreen = 0;
+			else
+				g_Config.m_GfxScreen++;
+
+			s_NumNodes = Graphics()->GetVideoModes(s_aModes, MAX_RESOLUTIONS, g_Config.m_GfxScreen);
+			//UpdateVideoFormats();
+			//UpdatedFilteredVideoModes();
+
+			CheckSettings = true;
+		}
+	}
+	
 	// switches
-	MainView.HSplitTop(20.0f, &Button, &MainView);
-	if(DoButton_CheckBox(&g_Config.m_GfxBorderless, Localize("Borderless window"), g_Config.m_GfxBorderless, &Button))
-	{
-		g_Config.m_GfxBorderless ^= 1;
-		if(g_Config.m_GfxBorderless && g_Config.m_GfxFullscreen)
-			g_Config.m_GfxFullscreen = 0;
-		CheckSettings = true;
-	}
-
+	CUIRect Text;
+	MainView.HSplitTop(20.0f, &Text, &MainView);
+	//text.VSplitLeft(15.0f, 0, &text);
+	UI()->DoLabelScaled(&Text, Localize("Display Mode"), 14.0f, -1);
 	MainView.HSplitTop(20.0f, &Button, &MainView);
 	if(DoButton_CheckBox(&g_Config.m_GfxFullscreen, Localize("Fullscreen"), g_Config.m_GfxFullscreen, &Button))
 	{
-		g_Config.m_GfxFullscreen ^= 1;
-		if(g_Config.m_GfxFullscreen && g_Config.m_GfxBorderless)
-			g_Config.m_GfxBorderless = 0;
+		g_Config.m_GfxFullscreen = 1;
+		g_Config.m_GfxBorderless = 0;
+		g_Config.m_GfxWindowedFullscreen = 0;
 		CheckSettings = true;
 	}
+	
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	if(DoButton_CheckBox(&g_Config.m_GfxWindowedFullscreen, Localize("Windowed fullscreen"), g_Config.m_GfxWindowedFullscreen, &Button))
+	{
+		g_Config.m_GfxWindowedFullscreen = 1;
+		g_Config.m_GfxBorderless = 0;
+		g_Config.m_GfxFullscreen = 0;
+		CheckSettings = true;
+	}
+	
+	static int pid_Window = 0;
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	if(DoButton_CheckBox(&pid_Window, Localize("Window"), !(g_Config.m_GfxBorderless || g_Config.m_GfxFullscreen || g_Config.m_GfxWindowedFullscreen), &Button))
+	{
+		g_Config.m_GfxWindowedFullscreen = 0;
+		g_Config.m_GfxBorderless = 0;
+		g_Config.m_GfxFullscreen = 0;
+		CheckSettings = true;
+	}
+	
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	if(DoButton_CheckBox(&g_Config.m_GfxBorderless, Localize("Borderless window"), g_Config.m_GfxBorderless, &Button))
+	{
+		g_Config.m_GfxBorderless = 1;
+		g_Config.m_GfxWindowedFullscreen = 0;
+		g_Config.m_GfxFullscreen = 0;
+		CheckSettings = true;
+	}
+	
 
+	
+	MainView.HSplitTop(20.0f, 0, &MainView);
+	MainView.HSplitTop(20.0f, &Text, &MainView);
+	//text.VSplitLeft(15.0f, 0, &text);
+	UI()->DoLabelScaled(&Text, Localize("Performance"), 14.0f, -1);
 	MainView.HSplitTop(20.0f, &Button, &MainView);
 	if(DoButton_CheckBox(&g_Config.m_GfxVsync, Localize("V-Sync"), g_Config.m_GfxVsync, &Button))
 	{
@@ -701,13 +663,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 		CheckSettings = true;
 	}
 	
-	MainView.HSplitTop(20.0f, &Button, &MainView);
-	if(DoButton_CheckBox(&g_Config.m_GfxThreaded, Localize("Threaded rendering"), g_Config.m_GfxThreaded, &Button))
-	{
-		g_Config.m_GfxThreaded ^= 1;
-		CheckSettings = true;
-	}
-
+	/*
 	MainView.HSplitTop(20.0f, &Button, &MainView);
 	if(g_Config.m_GfxThreaded)
 	{
@@ -718,7 +674,8 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 			CheckSettings = true;
 		}
 	}
-		
+	*/
+	
 	MainView.HSplitTop(20.0f, &Button, &MainView);
 	if(DoButton_CheckBox(&g_Config.m_GfxTextureQuality, Localize("Quality Textures"), g_Config.m_GfxTextureQuality, &Button))
 	{
@@ -745,11 +702,11 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 			s_GfxColorDepth == g_Config.m_GfxColorDepth &&
 			s_GfxBorderless == g_Config.m_GfxBorderless &&
 			s_GfxFullscreen == g_Config.m_GfxFullscreen &&
+			s_GfxWindowedFullscreen == g_Config.m_GfxWindowedFullscreen &&
 			s_GfxVsync == g_Config.m_GfxVsync &&
 			s_GfxFsaaSamples == g_Config.m_GfxFsaaSamples &&
 			s_GfxTextureQuality == g_Config.m_GfxTextureQuality &&
-			s_GfxTextureCompression == g_Config.m_GfxTextureCompression &&
-			s_GfxThreaded == g_Config.m_GfxThreaded)
+			s_GfxTextureCompression == g_Config.m_GfxTextureCompression)
 			m_NeedRestartGraphics = false;
 		else
 			m_NeedRestartGraphics = true;
@@ -757,7 +714,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 
 	//
 
-	CUIRect Text;
+	//CUIRect Text;
 	MainView.HSplitTop(20.0f, 0, &MainView);
 	MainView.HSplitTop(20.0f, &Text, &MainView);
 	//text.VSplitLeft(15.0f, 0, &text);
@@ -998,10 +955,11 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Language"),
 		Localize("General"),
 		Localize("Player"),
-		("Tee"),
+		Localize("Skins"),
 		Localize("Controls"),
 		Localize("Graphics"),
-		Localize("Sound")};
+		Localize("Sound"),
+		"Optimod"};
 
 	int NumTabs = (int)(sizeof(aTabs)/sizeof(*aTabs));
 
@@ -1022,13 +980,15 @@ void CMenus::RenderSettings(CUIRect MainView)
 	else if(s_SettingsPage == 2)
 		RenderSettingsPlayer(MainView);
 	else if(s_SettingsPage == 3)
-		RenderSettingsTee(MainView);
+		RenderSettingsSkins(MainView);
 	else if(s_SettingsPage == 4)
 		RenderSettingsControls(MainView);
 	else if(s_SettingsPage == 5)
 		RenderSettingsGraphics(MainView);
 	else if(s_SettingsPage == 6)
 		RenderSettingsSound(MainView);
+	else if(s_SettingsPage == 7)
+		RenderSettingsOptimod(MainView);
 
 	if(m_NeedRestartGraphics || m_NeedRestartSound)
 		UI()->DoLabel(&RestartWarning, Localize("You must restart the game for all settings to take effect."), 15.0f, -1);

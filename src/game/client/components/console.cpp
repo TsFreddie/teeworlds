@@ -95,7 +95,42 @@ void CGameConsole::CInstance::PossibleCommandsCompleteCallback(const char *pStr,
 void CGameConsole::CInstance::OnInput(IInput::CEvent Event)
 {
 	bool Handled = false;
+	
+	if(m_pGameConsole->Input()->KeyPressed(KEY_LCTRL) && m_pGameConsole->Input()->KeyDown(KEY_V))
+	{
+		const char *Text = m_pGameConsole->Input()->GetClipboardText();	
+		char Line[256];
+		int i, Begin = 0;
+		for(i = 0; i < str_length(Text); i++)
+		{
+			if(Text[i] == '\n')
+			{
+				if(i == Begin)
+				{
+					Begin++;
+					continue;
+				}
+				int max = i - Begin + 1;
+				if(max > (int)sizeof(Line))
+					max = sizeof(Line);
+				str_copy(Line, Text + Begin, max);
+				Begin = i+1;
+				ExecuteLine(Line);
+			}
+		}
+		int max = i - Begin + 1;
+		if(max > (int)sizeof(Line))
+			max = sizeof(Line);
+		str_copy(Line, Text + Begin, max);
+		Begin = i+1;
+		m_Input.Add(Line);
+	}
 
+	if(m_pGameConsole->Input()->KeyPressed(KEY_LCTRL) && m_pGameConsole->Input()->KeyDown(KEY_C))
+	{
+		m_pGameConsole->Input()->SetClipboardText(m_Input.GetString());
+	}
+	
 	if(Event.m_Flags&IInput::FLAG_PRESS)
 	{
 		if(Event.m_Key == KEY_RETURN || Event.m_Key == KEY_KP_ENTER)
@@ -227,6 +262,7 @@ CGameConsole::CGameConsole()
 	m_ConsoleState = CONSOLE_CLOSED;
 	m_StateChangeEnd = 0.0f;
 	m_StateChangeDuration = 0.1f;
+	m_OldMouseModes = 0;
 }
 
 float CGameConsole::TimeNow()
@@ -335,7 +371,10 @@ void CGameConsole::OnRender()
 		return;
 
 	if (m_ConsoleState == CONSOLE_OPEN)
-		Input()->MouseModeAbsolute();
+	{	
+		m_OldMouseModes = Input()->GetMouseModes();
+		Input()->SetMouseModes(0);
+	}
 
 	float ConsoleHeightScale;
 
@@ -398,7 +437,7 @@ void CGameConsole::OnRender()
 	ConsoleHeight -= 22.0f;
 
 	CInstance *pConsole = CurrentConsole();
-
+	
 	{
 		float FontSize = 10.0f;
 		float RowHeight = FontSize*1.25f;
@@ -433,34 +472,43 @@ void CGameConsole::OnRender()
 		TextRender()->TextEx(&Cursor, pPrompt, -1);
 
 		x = Cursor.m_X;
+		
+		bool Editing = false;
+		int EditingCursor = Input()->GetEditingCursor();
+		if (Input()->GetIME())
+			if(str_length(Input()->GetEditingText()))
+			{
+				pConsole->m_Input.Editing(Input()->GetEditingText(), EditingCursor);
+				Editing = true;
+			}
 
 		//hide rcon password
 		char aInputString[256];
-		str_copy(aInputString, pConsole->m_Input.GetString(), sizeof(aInputString));
+		str_copy(aInputString, pConsole->m_Input.GetString(Editing), sizeof(aInputString));
 		if(m_ConsoleType == CONSOLETYPE_REMOTE && Client()->State() == IClient::STATE_ONLINE && !Client()->RconAuthed())
 		{
-			for(int i = 0; i < pConsole->m_Input.GetLength(); ++i)
+			for(int i = 0; i < pConsole->m_Input.GetLength(Editing); ++i)
 				aInputString[i] = '*';
 		}
 
 		// render console input (wrap line)
 		TextRender()->SetCursor(&Cursor, x, y, FontSize, 0);
 		Cursor.m_LineWidth = Screen.w - 10.0f - x;
-		TextRender()->TextEx(&Cursor, aInputString, pConsole->m_Input.GetCursorOffset());
-		TextRender()->TextEx(&Cursor, aInputString+pConsole->m_Input.GetCursorOffset(), -1);
+		TextRender()->TextEx(&Cursor, aInputString, pConsole->m_Input.GetCursorOffset(Editing));
+		TextRender()->TextEx(&Cursor, aInputString+pConsole->m_Input.GetCursorOffset(Editing), -1);
 		int Lines = Cursor.m_LineCount;
 		
 		y -= (Lines - 1) * FontSize;
 		TextRender()->SetCursor(&Cursor, x, y, FontSize, TEXTFLAG_RENDER);
 		Cursor.m_LineWidth = Screen.w - 10.0f - x;
 		
-		TextRender()->TextEx(&Cursor, aInputString, pConsole->m_Input.GetCursorOffset());
+		TextRender()->TextEx(&Cursor, aInputString, pConsole->m_Input.GetCursorOffset(Editing));
 		static float MarkerOffset = TextRender()->TextWidth(0, FontSize, "|", -1)/3;
 		CTextCursor Marker = Cursor;
 		Marker.m_X -= MarkerOffset;
 		Marker.m_LineWidth = -1;
 		TextRender()->TextEx(&Marker, "|", -1);
-		TextRender()->TextEx(&Cursor, aInputString+pConsole->m_Input.GetCursorOffset(), -1);
+		TextRender()->TextEx(&Cursor, aInputString+pConsole->m_Input.GetCursorOffset(Editing), -1);
 
 		// render possible commands
 		if(m_ConsoleType == CONSOLETYPE_LOCAL || Client()->RconAuthed())
@@ -556,7 +604,7 @@ bool CGameConsole::OnInput(IInput::CEvent Event)
 {
 	if(m_ConsoleState == CONSOLE_CLOSED)
 		return false;
-	if(Event.m_Key >= KEY_F1 && Event.m_Key <= KEY_F15)
+	if(Input()->IsFKey(Event.m_Key))
 		return false;
 
 	if(Event.m_Key == KEY_ESCAPE && (Event.m_Flags&IInput::FLAG_PRESS))
@@ -589,18 +637,21 @@ void CGameConsole::Toggle(int Type)
 
 		if (m_ConsoleState == CONSOLE_CLOSED || m_ConsoleState == CONSOLE_CLOSING)
 		{
-			Input()->MouseModeAbsolute();
+			m_OldMouseModes = Input()->GetMouseModes();
+			Input()->SetMouseModes(IInput::MOUSE_MODE_NO_MOUSE);
 			m_pClient->m_pMenus->UseMouseButtons(false);
 			m_ConsoleState = CONSOLE_OPENING;
+			Input()->SetIME(true);
 			// reset controls
 			m_pClient->m_pControls->OnReset();
 		}
 		else
 		{
-			Input()->MouseModeRelative();
+			Input()->SetMouseModes(m_OldMouseModes);
 			m_pClient->m_pMenus->UseMouseButtons(true);
 			m_pClient->OnRelease();
 			m_ConsoleState = CONSOLE_CLOSING;
+			Input()->SetIME(false);
 		}
 	}
 

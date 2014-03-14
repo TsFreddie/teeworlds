@@ -30,7 +30,6 @@ void CHud::OnReset()
 void CHud::RenderGameTimer()
 {
 	float Half = 300.0f*Graphics()->ScreenAspect()/2.0f;
-
 	if(!(m_pClient->m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_SUDDENDEATH))
 	{
 		char Buf[32];

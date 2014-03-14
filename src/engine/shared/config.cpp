@@ -76,7 +76,7 @@ public:
 	{
 		if(!m_pStorage)
 			return;
-		m_ConfigFile = m_pStorage->OpenFile("settings.cfg", IOFLAG_WRITE, IStorage::TYPE_SAVE);
+		m_ConfigFile = m_pStorage->OpenFile("c-client.cfg", IOFLAG_WRITE, IStorage::TYPE_SAVE);
 
 		if(!m_ConfigFile)
 			return;

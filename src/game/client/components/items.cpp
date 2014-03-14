@@ -9,11 +9,13 @@
 #include <game/client/gameclient.h>
 #include <game/client/ui.h>
 #include <game/client/render.h>
+#include <engine/shared/config.h>
 
 #include <game/client/components/flow.h>
 #include <game/client/components/effects.h>
 
 #include "items.h"
+#include "skins.h"
 
 void CItems::OnReset()
 {
@@ -97,6 +99,57 @@ void CItems::RenderProjectile(const CNetObj_Projectile *pCurrent, int ItemID)
 
 	IGraphics::CQuadItem QuadItem(Pos.x, Pos.y, 32, 32);
 	Graphics()->QuadsDraw(&QuadItem, 1);
+	
+	// Draw shadows of grenades
+	bool LocalPlayerInGame = 
+		m_pClient->m_aClients[m_pClient->m_Snap.m_pLocalInfo->m_ClientID].m_Team != -1;
+
+	if(g_Config.m_GameAntiPingGrenade && pCurrent->m_Type == WEAPON_GRENADE && LocalPlayerInGame && !m_pClient->m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER)
+	{
+		// Calculate average prediction offset, because client_predtick() gets varial values :(((
+		// Must be there is a normal way to realize it, but I'm too lazy to find it. ^)
+		if (m_pClient->m_Average_Prediction_Offset == -1)
+		{
+			int Offset = Client()->PredGameTick() - Client()->GameTick();
+			m_pClient->m_Prediction_Offset_Summ += Offset;
+			m_pClient->m_Prediction_Offset_Count++;
+
+			if (m_pClient->m_Prediction_Offset_Count >= 100)
+			{
+				m_pClient->m_Average_Prediction_Offset = 
+					round((float)m_pClient->m_Prediction_Offset_Summ / m_pClient->m_Prediction_Offset_Count);
+			}
+		}		
+
+		// Draw shadow only if grenade directed to local player
+		CNetObj_CharacterCore& CurChar = m_pClient->m_Snap.m_aCharacters[m_pClient->m_Snap.m_pLocalInfo->m_ClientID].m_Cur;
+		CNetObj_CharacterCore& PrevChar = m_pClient->m_Snap.m_aCharacters[m_pClient->m_Snap.m_pLocalInfo->m_ClientID].m_Prev;
+		vec2 ServerPos = mix(vec2(PrevChar.m_X, PrevChar.m_Y), vec2(CurChar.m_X, CurChar.m_Y), Client()->IntraGameTick());
+
+		float d1 = distance(Pos, ServerPos);
+		float d2 = distance(PrevPos, ServerPos);
+		if (d1 < 0) d1 *= -1;
+		if (d2 < 0) d2 *= -1;
+		bool GrenadeIsDirectedToLocalPlayer = d1 < d2;
+
+		if (m_pClient->m_Average_Prediction_Offset != -1 && GrenadeIsDirectedToLocalPlayer)
+		{
+			int PredictedTick = Client()->PrevGameTick() + m_pClient->m_Average_Prediction_Offset;
+			float PredictedCt = (PredictedTick - pCurrent->m_StartTick)/(float)SERVER_TICK_SPEED + Client()->GameTickTime();
+		
+			if (PredictedCt >= 0)
+			{
+				int shadow_type = WEAPON_GUN; // Pistol bullet sprite is used for marker of shadow. TODO: use something custom.
+				RenderTools()->SelectSprite(g_pData->m_Weapons.m_aId[clamp(shadow_type, 0, NUM_WEAPONS-1)].m_pSpriteProj);
+				
+				vec2 PredictedPos = CalcPos(StartPos, StartVel, Curvature, Speed, PredictedCt);
+				
+				IGraphics::CQuadItem QuadItem(PredictedPos.x, PredictedPos.y, 32, 32);
+				Graphics()->QuadsDraw(&QuadItem, 1);
+			}
+		}
+	}
+	
 	Graphics()->QuadsSetRotation(0);
 	Graphics()->QuadsEnd();
 }
@@ -187,7 +240,7 @@ void CItems::RenderFlag(const CNetObj_Flag *pPrev, const CNetObj_Flag *pCurrent,
 			(pCurrent->m_Team == TEAM_BLUE && pCurGameData->m_FlagCarrierBlue == m_pClient->m_Snap.m_LocalClientID)))
 			Pos = m_pClient->m_LocalCharacterPos;
 	}
-
+	
 	IGraphics::CQuadItem QuadItem(Pos.x, Pos.y-Size*0.75f, Size, Size*2);
 	Graphics()->QuadsDraw(&QuadItem, 1);
 	Graphics()->QuadsEnd();
@@ -216,8 +269,13 @@ void CItems::RenderLaser(const struct CNetObj_Laser *pCurrent)
 	//vec4 outer_color(0.65f,0.85f,1.0f,1.0f);
 
 	// do outline
-	vec4 OuterColor(0.075f, 0.075f, 0.25f, 1.0f);
-	Graphics()->SetColor(OuterColor.r, OuterColor.g, OuterColor.b, 1.0f);
+	//vec4 OuterColor(0.075f, 0.075f, 0.25f, 1.0f);
+	vec4 OuterColor;
+	OuterColor.r = ((g_Config.m_GameLaserOuterColor>>16)&0xff)/255.0f;
+	OuterColor.g = ((g_Config.m_GameLaserOuterColor>>8)&0xff)/255.0f;
+	OuterColor.b = (g_Config.m_GameLaserOuterColor&0xff)/255.0f;
+	OuterColor.a = g_Config.m_GameLaserOuterAlpha/255.0f;
+	Graphics()->SetColor(OuterColor.r, OuterColor.g, OuterColor.b, OuterColor.a);
 	Out = vec2(Dir.y, -Dir.x) * (7.0f*Ia);
 
 	IGraphics::CFreeformItem Freeform(
@@ -228,9 +286,14 @@ void CItems::RenderLaser(const struct CNetObj_Laser *pCurrent)
 	Graphics()->QuadsDrawFreeform(&Freeform, 1);
 
 	// do inner
-	vec4 InnerColor(0.5f, 0.5f, 1.0f, 1.0f);
+	//vec4 InnerColor(0.5f, 0.5f, 1.0f, 1.0f);
+	vec4 InnerColor;
+	InnerColor.r = ((g_Config.m_GameLaserInnerColor>>16)&0xff)/255.0f;
+	InnerColor.g = ((g_Config.m_GameLaserInnerColor>>8)&0xff)/255.0f;
+	InnerColor.b = (g_Config.m_GameLaserInnerColor&0xff)/255.0f;
+	InnerColor.a = g_Config.m_GameLaserInnerAlpha/255.0f;
 	Out = vec2(Dir.y, -Dir.x) * (5.0f*Ia);
-	Graphics()->SetColor(InnerColor.r, InnerColor.g, InnerColor.b, 1.0f); // center
+	Graphics()->SetColor(InnerColor.r, InnerColor.g, InnerColor.b, InnerColor.a); // center
 
 	Freeform = IGraphics::CFreeformItem(
 			From.x-Out.x, From.y-Out.y,
@@ -240,7 +303,19 @@ void CItems::RenderLaser(const struct CNetObj_Laser *pCurrent)
 	Graphics()->QuadsDrawFreeform(&Freeform, 1);
 
 	Graphics()->QuadsEnd();
-
+	
+	//Dot Color
+	vec4 OuterDColor;
+	OuterDColor.r = ((g_Config.m_GameDotOuterColor>>16)&0xff)/255.0f;
+	OuterDColor.g = ((g_Config.m_GameDotOuterColor>>8)&0xff)/255.0f;
+	OuterDColor.b = (g_Config.m_GameDotOuterColor&0xff)/255.0f;
+	OuterDColor.a = g_Config.m_GameDotOuterAlpha/255.0f;
+	
+	vec4 InnerDColor;
+	InnerDColor.r = ((g_Config.m_GameDotInnerColor>>16)&0xff)/255.0f;
+	InnerDColor.g = ((g_Config.m_GameDotInnerColor>>8)&0xff)/255.0f;
+	InnerDColor.b = (g_Config.m_GameDotInnerColor&0xff)/255.0f;
+	InnerDColor.a = g_Config.m_GameDotInnerAlpha/255.0f;
 	// render head
 	{
 		Graphics()->BlendNormal();
@@ -250,10 +325,10 @@ void CItems::RenderLaser(const struct CNetObj_Laser *pCurrent)
 		int Sprites[] = {SPRITE_PART_SPLAT01, SPRITE_PART_SPLAT02, SPRITE_PART_SPLAT03};
 		RenderTools()->SelectSprite(Sprites[Client()->GameTick()%3]);
 		Graphics()->QuadsSetRotation(Client()->GameTick());
-		Graphics()->SetColor(OuterColor.r, OuterColor.g, OuterColor.b, 1.0f);
+		Graphics()->SetColor(OuterDColor.r, OuterDColor.g, OuterDColor.b, OuterDColor.a);
 		IGraphics::CQuadItem QuadItem(Pos.x, Pos.y, 24, 24);
 		Graphics()->QuadsDraw(&QuadItem, 1);
-		Graphics()->SetColor(InnerColor.r, InnerColor.g, InnerColor.b, 1.0f);
+		Graphics()->SetColor(InnerDColor.r, InnerDColor.g, InnerDColor.b, InnerDColor.a);
 		QuadItem = IGraphics::CQuadItem(Pos.x, Pos.y, 20, 20);
 		Graphics()->QuadsDraw(&QuadItem, 1);
 		Graphics()->QuadsEnd();

@@ -160,7 +160,6 @@ class CTextRender : public IEngineTextRender
 			pSizeData->m_aTextures[i] = Graphics()->LoadTextureRaw(Width, Height, CImageInfo::FORMAT_ALPHA, pMem, CImageInfo::FORMAT_ALPHA, IGraphics::TEXLOAD_NOMIPMAPS);
 			FontMemoryUsage += Width*Height;
 		}
-
 		pSizeData->m_NumXChars = Xchars;
 		pSizeData->m_NumYChars = Ychars;
 		pSizeData->m_TextureWidth = Width;
@@ -200,13 +199,13 @@ class CTextRender : public IEngineTextRender
 		FT_Set_Pixel_Sizes(pFont->m_FtFace, 0, pSizeData->m_FontSize);
 
 		int OutlineThickness = AdjustOutlineThicknessToFontSize(1, pSizeData->m_FontSize);
-
 		{
 			unsigned GlyphIndex;
 			int MaxH = 0;
 			int MaxW = 0;
 
 			int Charcode = FT_Get_First_Char(pFont->m_FtFace, &GlyphIndex);
+			
 			while(GlyphIndex != 0)
 			{
 				// do stuff
@@ -223,7 +222,6 @@ class CTextRender : public IEngineTextRender
 			for(pSizeData->m_CharMaxWidth = 1; pSizeData->m_CharMaxWidth < MaxW; pSizeData->m_CharMaxWidth <<= 1);
 			for(pSizeData->m_CharMaxHeight = 1; pSizeData->m_CharMaxHeight < MaxH; pSizeData->m_CharMaxHeight <<= 1);
 		}
-
 		//dbg_msg("pFont", "init size %d, texture size %d %d", pFont->sizes[index].font_size, w, h);
 		//FT_New_Face(m_FTLibrary, "data/fonts/vera.ttf", 0, &pFont->ft_face);
 		InitTexture(pSizeData, pSizeData->m_CharMaxWidth, pSizeData->m_CharMaxHeight, 8, 8);
@@ -589,7 +587,6 @@ public:
 
 		if(!pFont)
 			return;
-
 		pSizeData = GetSize(pFont, ActualSize);
 		RenderSetup(pFont, ActualSize);
 

@@ -9,6 +9,7 @@
 #include <game/layers.h>
 #include <game/gamecore.h>
 #include "render.h"
+#include <engine/textrender.h>
 
 class CGameClient : public IGameClient
 {
@@ -175,6 +176,7 @@ public:
 		int m_Emoticon;
 		int m_EmoticonStart;
 		CCharacterCore m_Predicted;
+		CCharacterCore m_PrevPredicted;  // Anti-ping ADD
 
 		CTeeRenderInfo m_SkinInfo; // this is what the server reports
 		CTeeRenderInfo m_RenderInfo; // this is what we use
@@ -188,8 +190,44 @@ public:
 		void Reset();
 	};
 
+	int m_AmmoCount[NUM_WEAPONS];
+	int m_Average_Prediction_Offset;
+	int m_Prediction_Offset_Summ;
+	int m_Prediction_Offset_Count;
+	
 	CClientData m_aClients[MAX_CLIENTS];
+	int m_LocalClientID;
+	
+	//Optimod-Stats
+	class CClientStats
+	{
+	public:
+		CClientStats();
+		
+		int m_JoinDate;
+		bool m_Active;
+		bool m_WasActive;
 
+		int m_aKillsBy[MAX_CLIENTS];
+		int m_aKillsWith[NUM_WEAPONS];
+		int m_aDeathsFrom[NUM_WEAPONS];
+		int m_Kills;
+		int m_Deaths;
+		int m_Suicides;
+		int m_BestSpree;
+		int m_CurrentSpree;
+
+		int m_FlagGrabs;
+		int m_FlagCaptures;
+		int m_CarriersKilled;
+		int m_KillsCarrying;
+		int m_DeathsCarrying;
+
+		void Reset();
+	};
+	
+	CClientStats m_aStats[MAX_CLIENTS];
+	
 	CRenderTools m_RenderTools;
 
 	void OnReset();
@@ -212,6 +250,9 @@ public:
 	virtual void OnGameOver();
 	virtual void OnStartGame();
 
+	//Optimod-Stats
+	void OnFlagGrab(int Id);
+		
 	virtual const char *GetItemName(int Type);
 	virtual const char *Version();
 	virtual const char *NetVersion();
@@ -244,6 +285,10 @@ public:
 	class CItems *m_pItems;
 	class CMapLayers *m_pMapLayersBackGround;
 	class CMapLayers *m_pMapLayersForeGround;
+	//C-Client Add
+	class CgSkins *m_pgSkins;
+	class CpSkins *m_ppSkins;
+	class COptiStats *m_pOptiStats;
 };
 
 

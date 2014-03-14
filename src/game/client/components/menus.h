@@ -69,12 +69,13 @@ class CMenus : public CComponent
 
 	float DoScrollbarV(const void *pID, const CUIRect *pRect, float Current);
 	float DoScrollbarH(const void *pID, const CUIRect *pRect, float Current);
+	int DoCoolScrollbarH(const void *pID, const CUIRect *pRect, int Real, float Min, float Max, int ShowNumber);
 	void DoButton_KeySelect(const void *pID, const char *pText, int Checked, const CUIRect *pRect);
 	int DoKeyReader(void *pID, const CUIRect *pRect, int Key);
 
 	//static int ui_do_key_reader(void *id, const CUIRect *rect, int key);
 	void UiDoGetButtons(int Start, int Stop, CUIRect View);
-
+	
 	struct CListboxItem
 	{
 		int m_Visible;
@@ -154,7 +155,8 @@ class CMenus : public CComponent
 	static float ms_ButtonHeight;
 	static float ms_ListheaderHeight;
 	static float ms_FontmodHeight;
-
+	float TempSens;
+	
 	// for settings
 	bool m_NeedRestartGraphics;
 	bool m_NeedRestartSound;
@@ -266,12 +268,21 @@ class CMenus : public CComponent
 	void RenderLanguageSelection(CUIRect MainView);
 	void RenderSettingsGeneral(CUIRect MainView);
 	void RenderSettingsPlayer(CUIRect MainView);
-	void RenderSettingsTee(CUIRect MainView);
 	void RenderSettingsControls(CUIRect MainView);
 	void RenderSettingsGraphics(CUIRect MainView);
 	void RenderSettingsSound(CUIRect MainView);
 	void RenderSettings(CUIRect MainView);
-
+	
+	// found in menus_skins.cpp
+	void RenderSettingsSkins(CUIRect MainView);
+	void RenderSettingsTee(CUIRect MainView);
+	void RenderSettingsTextures(CUIRect MainView);
+	void RenderSettingsParticles(CUIRect MainView);
+	void RenderSettingsMisc(CUIRect MainView);
+	
+	// found in menus_optimod.cpp
+	void RenderSettingsOptimod(CUIRect MainView);
+	
 	void SetActive(bool Active);
 public:
 	void RenderBackground();

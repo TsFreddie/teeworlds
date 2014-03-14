@@ -5,6 +5,7 @@
 #include <base/system.h>
 #include <engine/shared/config.h>
 #include <engine/graphics.h>
+#include <engine/storage.h>
 #include <engine/input.h>
 #include <engine/keys.h>
 
@@ -33,25 +34,122 @@ CInput::CInput()
 	mem_zero(m_aInputCount, sizeof(m_aInputCount));
 	mem_zero(m_aInputState, sizeof(m_aInputState));
 
+	m_MouseModes = 0;
+
 	m_InputCurrent = 0;
-	m_InputGrabbed = 0;
 	m_InputDispatched = false;
+
+	m_FirstWarp = false;
+	m_LastMousePosX = 0;
+	m_LastMousePosY = 0;
+
+	m_pCursorSurface = NULL;
+	m_pCursor = NULL;
+	m_pClipboardText = NULL;
 
 	m_LastRelease = 0;
 	m_ReleaseDelta = -1;
 
+	m_MouseLeft = false;
+	m_MouseEntered = false;
+
 	m_NumEvents = 0;
+	
+	m_IMEactivated = false;
 }
 
 void CInput::Init()
 {
 	m_pGraphics = Kernel()->RequestInterface<IEngineGraphics>();
-	SDL_EnableUNICODE(1);
-	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+	SDL_StopTextInput();
+	ShowCursor(true);
+	//m_pGraphics->GrabWindow(true);
 }
 
-void CInput::MouseRelative(float *x, float *y)
+void CInput::LoadHardwareCursor()
 {
+	if(m_pCursor != NULL)
+		return;
+
+	CImageInfo CursorImg;
+	if(!m_pGraphics->LoadPNG(&CursorImg, "gui_cursor_small.png", IStorage::TYPE_ALL))
+		return;
+
+	m_pCursorSurface = SDL_CreateRGBSurfaceFrom(
+		CursorImg.m_pData, CursorImg.m_Width, CursorImg.m_Height,
+		32, 4*CursorImg.m_Width,
+		0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+	if(!m_pCursorSurface)
+		return;
+	
+	m_pCursor = SDL_CreateColorCursor(m_pCursorSurface, 0, 0);
+}
+
+int CInput::ShowCursor(bool show)
+{
+	if(g_Config.m_InpHWCursor)
+	{
+		LoadHardwareCursor();
+		SDL_SetCursor(m_pCursor);
+	}
+	return SDL_ShowCursor(show);
+}
+
+void CInput::SetMouseModes(int modes)
+{
+	if((m_MouseModes & MOUSE_MODE_WARP_CENTER) && !(modes & MOUSE_MODE_WARP_CENTER))
+		m_pGraphics->WarpMouse(m_LastMousePosX, m_LastMousePosY);
+	else if(!(m_MouseModes & MOUSE_MODE_WARP_CENTER) && (modes & MOUSE_MODE_WARP_CENTER))
+		m_FirstWarp = true;
+
+	m_MouseModes = modes;
+}
+
+int CInput::GetMouseModes()
+{
+	return m_MouseModes;
+}
+
+void CInput::GetMousePosition(float *x, float *y)
+{
+	if(GetMouseModes() & MOUSE_MODE_NO_MOUSE)
+		return;
+
+	float Sens = g_Config.m_InpMousesens/100.0f;
+	int nx = 0, ny = 0;
+	SDL_GetMouseState(&nx, &ny);
+
+	if(m_FirstWarp)
+	{
+		m_LastMousePosX = nx;
+		m_LastMousePosY = ny;
+		m_FirstWarp = false;
+	}
+
+	*x = nx * Sens;
+	*y = ny * Sens;
+
+	if(GetMouseModes() & MOUSE_MODE_WARP_CENTER)
+		m_pGraphics->WarpMouse(Graphics()->ScreenWidth()/2,Graphics()->ScreenHeight()/2);
+}
+
+void CInput::GetRelativePosition(float *x, float *y)
+{
+/*
+
+	if(m_FirstWarp)
+	{
+		*x = 0;
+		*y = 0;
+		return;
+	}
+	//float Sens = g_Config.m_InpMousesens/100.0f;
+	*x *= (float)100/g_Config.m_InpMousesens;
+	*y *= (float)100/g_Config.m_InpMousesens;
+	
+	*x -= Graphics()->ScreenWidth()/2;
+	*y -= Graphics()->ScreenHeight()/2;
+*/
 	int nx = 0, ny = 0;
 	float Sens = g_Config.m_InpMousesens/100.0f;
 
@@ -59,32 +157,20 @@ void CInput::MouseRelative(float *x, float *y)
 		SDL_GetRelativeMouseState(&nx, &ny);
 	else
 	{
-		if(m_InputGrabbed)
-		{
-			SDL_GetMouseState(&nx,&ny);
-			SDL_WarpMouse(Graphics()->ScreenWidth()/2,Graphics()->ScreenHeight()/2);
-			nx -= Graphics()->ScreenWidth()/2; ny -= Graphics()->ScreenHeight()/2;
-		}
+		SDL_GetMouseState(&nx,&ny);
+		m_pGraphics->WarpMouse(Graphics()->ScreenWidth()/2,Graphics()->ScreenHeight()/2);
+		nx -= Graphics()->ScreenWidth()/2; ny -= Graphics()->ScreenHeight()/2;
 	}
-
+	
 	*x = nx*Sens;
 	*y = ny*Sens;
 }
 
-void CInput::MouseModeAbsolute()
+bool CInput::MouseMoved()
 {
-	SDL_ShowCursor(1);
-	m_InputGrabbed = 0;
-	if(g_Config.m_InpGrab)
-		SDL_WM_GrabInput(SDL_GRAB_OFF);
-}
-
-void CInput::MouseModeRelative()
-{
-	SDL_ShowCursor(0);
-	m_InputGrabbed = 1;
-	if(g_Config.m_InpGrab)
-		SDL_WM_GrabInput(SDL_GRAB_ON);
+	int x = 0, y = 0;
+	SDL_GetRelativeMouseState(&x, &y);
+	return x != 0 || y != 0;
 }
 
 int CInput::MouseDoubleClick()
@@ -98,6 +184,57 @@ int CInput::MouseDoubleClick()
 	return 0;
 }
 
+const char* CInput::GetClipboardText()
+{
+	char aBuf[256];
+	str_format(aBuf,sizeof(aBuf),SDL_GetClipboardText());
+	m_pClipboardText = aBuf;
+	return m_pClipboardText;
+}
+
+void CInput::SetClipboardText(const char *Text)
+{
+	SDL_SetClipboardText(Text);
+}
+
+bool CInput::MouseLeft()
+{
+	return m_MouseLeft;
+}
+
+bool CInput::MouseEntered()
+{
+	return m_MouseEntered;
+}
+
+bool CInput::GetIME()
+{
+	return m_IMEactivated;
+}
+
+void CInput::SetIME(bool activate)
+{
+	if (activate)
+		SDL_StartTextInput();
+	else
+	{
+		SDL_StopTextInput();
+		m_IMEactivated = false;
+	}
+}
+
+const char* CInput::GetEditingText()
+{
+	if (strlen(m_pEditingText))
+		return m_pEditingText;
+	else
+		return "";
+}
+
+int CInput::GetEditingCursor()
+{
+	return m_EditingCursor;
+}
 void CInput::ClearKeyStates()
 {
 	mem_zero(m_aInputState, sizeof(m_aInputState));
@@ -111,8 +248,8 @@ int CInput::KeyState(int Key)
 
 int CInput::Update()
 {
-	if(m_InputGrabbed && !Graphics()->WindowActive())
-		MouseModeAbsolute();
+//	if(m_InputGrabbed && !Graphics()->WindowActive())
+//		MouseModeAbsolute();
 
 	/*if(!input_grabbed && Graphics()->WindowActive())
 		Input()->MouseModeRelative();*/
@@ -128,11 +265,14 @@ int CInput::Update()
 
 	{
 		int i;
-		Uint8 *pState = SDL_GetKeyState(&i);
+		const Uint8 *pState = SDL_GetKeyboardState(&i);
 		if(i >= KEY_LAST)
 			i = KEY_LAST-1;
 		mem_copy(m_aInputState[m_InputCurrent], pState, i);
 	}
+
+	m_MouseLeft = false;
+	m_MouseEntered = false;
 
 	// these states must always be updated manually because they are not in the GetKeyState from SDL
 	int i = SDL_GetMouseState(NULL, NULL);
@@ -147,23 +287,43 @@ int CInput::Update()
 
 	{
 		SDL_Event Event;
-
+	
 		while(SDL_PollEvent(&Event))
 		{
 			int Key = -1;
 			int Action = IInput::FLAG_PRESS;
 			switch (Event.type)
 			{
+				case SDL_TEXTEDITING:
+				{
+					if (strlen(Event.edit.text))
+					{
+						m_IMEactivated = true;
+						str_format(m_pEditingText, sizeof(m_pEditingText), Event.edit.text);
+						m_EditingCursor = Event.edit.start;
+						if (m_EditingCursor > strlen(m_pEditingText)) m_EditingCursor = strlen(m_pEditingText);
+					}
+					else
+						m_IMEactivated = false;
+					break;
+				}
+				case SDL_TEXTINPUT:
+				{
+					int TextLength, i;
+					TextLength = strlen(Event.text.text);
+					for(i = 0; i < TextLength; i++)
+					{
+						AddEvent(Event.text.text[i], 0, 0);
+					}
+				}
 				// handle keys
 				case SDL_KEYDOWN:
-					// skip private use area of the BMP(contains the unicodes for keyboard function keys on MacOS)
-					if(Event.key.keysym.unicode < 0xE000 || Event.key.keysym.unicode > 0xF8FF)	// ignore_convention
-						AddEvent(Event.key.keysym.unicode, 0, 0); // ignore_convention
-					Key = Event.key.keysym.sym; // ignore_convention
+					if (!m_IMEactivated)
+						Key = SDL_GetScancodeFromName(SDL_GetKeyName(Event.key.keysym.sym));
 					break;
 				case SDL_KEYUP:
 					Action = IInput::FLAG_RELEASE;
-					Key = Event.key.keysym.sym; // ignore_convention
+					Key = SDL_GetScancodeFromName(SDL_GetKeyName(Event.key.keysym.sym));
 					break;
 
 				// handle mouse buttons
@@ -181,11 +341,23 @@ int CInput::Update()
 					if(Event.button.button == SDL_BUTTON_LEFT) Key = KEY_MOUSE_1; // ignore_convention
 					if(Event.button.button == SDL_BUTTON_RIGHT) Key = KEY_MOUSE_2; // ignore_convention
 					if(Event.button.button == SDL_BUTTON_MIDDLE) Key = KEY_MOUSE_3; // ignore_convention
-					if(Event.button.button == SDL_BUTTON_WHEELUP) Key = KEY_MOUSE_WHEEL_UP; // ignore_convention
-					if(Event.button.button == SDL_BUTTON_WHEELDOWN) Key = KEY_MOUSE_WHEEL_DOWN; // ignore_convention
+					if(Event.button.button == 4) Key = KEY_MOUSE_6; // ignore_convention
+					if(Event.button.button == 5) Key = KEY_MOUSE_7; // ignore_convention
 					if(Event.button.button == 6) Key = KEY_MOUSE_6; // ignore_convention
 					if(Event.button.button == 7) Key = KEY_MOUSE_7; // ignore_convention
 					if(Event.button.button == 8) Key = KEY_MOUSE_8; // ignore_convention
+					break;
+
+				case SDL_MOUSEWHEEL:
+					if(Event.wheel.y > 0) Key = KEY_MOUSE_WHEEL_UP; // ignore_convention
+					if(Event.wheel.y < 0) Key = KEY_MOUSE_WHEEL_DOWN; // ignore_convention
+					AddEvent(0, Key, Action);
+					Action = IInput::FLAG_RELEASE;
+					break;
+
+				case SDL_WINDOWEVENT:
+					if(Event.window.event == SDL_WINDOWEVENT_ENTER) m_MouseEntered = true;
+					if(Event.window.event == SDL_WINDOWEVENT_LEAVE) m_MouseLeft = true;
 					break;
 
 				// other messages

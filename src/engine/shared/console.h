@@ -98,11 +98,12 @@ class CConsole : public IConsole
 			if(this != &Other)
 			{
 				IResult::operator=(Other);
+				int Offset = m_aStringStorage - Other.m_aStringStorage;
 				mem_copy(m_aStringStorage, Other.m_aStringStorage, sizeof(m_aStringStorage));
-				m_pArgsStart = m_aStringStorage+(Other.m_pArgsStart-Other.m_aStringStorage);
-				m_pCommand = m_aStringStorage+(Other.m_pCommand-Other.m_aStringStorage);
+				m_pArgsStart = Other.m_pArgsStart + Offset;
+				m_pCommand = Other.m_pCommand + Offset;
 				for(unsigned i = 0; i < Other.m_NumArgs; ++i)
-					m_apArgs[i] = m_aStringStorage+(Other.m_apArgs[i]-Other.m_aStringStorage);
+					m_apArgs[i] = Other.m_apArgs[i] + Offset;
 			}
 			return *this;
 		}

@@ -680,6 +680,12 @@ void CGraphics_Threaded::QuadsText(float x, float y, float Size, const char *pTe
 int CGraphics_Threaded::IssueInit()
 {
 	int Flags = 0;
+	if((g_Config.m_GfxWindowedFullscreen && g_Config.m_GfxBorderless) || (g_Config.m_GfxWindowedFullscreen && g_Config.m_GfxFullscreen))
+	{
+		dbg_msg("gfx", "windowed fullscreen activated, disabling borderless and fullscreen");
+		g_Config.m_GfxBorderless = 0;
+		g_Config.m_GfxFullscreen = 0;
+	}
 	if(g_Config.m_GfxBorderless && g_Config.m_GfxFullscreen)
 	{
 		dbg_msg("gfx", "both borderless and fullscreen activated, disabling borderless");
@@ -688,10 +694,11 @@ int CGraphics_Threaded::IssueInit()
 
 	if(g_Config.m_GfxBorderless) Flags |= IGraphicsBackend::INITFLAG_BORDERLESS;
 	else if(g_Config.m_GfxFullscreen) Flags |= IGraphicsBackend::INITFLAG_FULLSCREEN;
+	else if(g_Config.m_GfxWindowedFullscreen) Flags |= IGraphicsBackend::INITFLAG_FULLSCREEN_DESKTOP;
 	if(g_Config.m_GfxVsync) Flags |= IGraphicsBackend::INITFLAG_VSYNC;
 	if(g_Config.m_DbgResizable) Flags |= IGraphicsBackend::INITFLAG_RESIZABLE;
 
-	return m_pBackend->Init("Teeworlds", &g_Config.m_GfxScreenWidth, &g_Config.m_GfxScreenHeight, g_Config.m_GfxFsaaSamples, Flags);
+	return m_pBackend->Init("Teeworlds", &g_Config.m_GfxScreenWidth, &g_Config.m_GfxScreenHeight, g_Config.m_GfxScreen, g_Config.m_GfxFsaaSamples, Flags, &m_DesktopScreenWidth, &m_DesktopScreenHeight);
 }
 
 int CGraphics_Threaded::InitWindow()
@@ -789,8 +796,17 @@ void CGraphics_Threaded::Minimize()
 
 void CGraphics_Threaded::Maximize()
 {
-	// TODO: SDL
 	m_pBackend->Maximize();
+}
+
+void CGraphics_Threaded::GrabWindow(bool grab)
+{
+    m_pBackend->GrabWindow(grab);
+}
+
+void CGraphics_Threaded::WarpMouse(int x, int y)
+{
+	m_pBackend->WarpMouse(x, y);
 }
 
 int CGraphics_Threaded::WindowActive()
@@ -850,7 +866,7 @@ void CGraphics_Threaded::WaitForIdle()
 	m_pBackend->WaitForIdle();
 }
 
-int CGraphics_Threaded::GetVideoModes(CVideoMode *pModes, int MaxModes)
+int CGraphics_Threaded::GetVideoModes(CVideoMode *pModes, int MaxModes, int Screen)
 {
 	if(g_Config.m_GfxDisplayAllModes)
 	{
@@ -870,12 +886,18 @@ int CGraphics_Threaded::GetVideoModes(CVideoMode *pModes, int MaxModes)
 	Cmd.m_pModes = pModes;
 	Cmd.m_MaxModes = MaxModes;
 	Cmd.m_pNumModes = &NumModes;
+	Cmd.m_Screen = Screen;
 	m_pCommandBuffer->AddCommand(Cmd);
 
 	// kick the buffer and wait for the result and return it
 	KickCommandBuffer();
 	WaitForIdle();
 	return NumModes;
+}
+
+int CGraphics_Threaded::GetNumScreens()
+{
+	return m_pBackend->GetNumScreens();
 }
 
 extern IEngineGraphics *CreateEngineGraphicsThreaded() { return new CGraphics_Threaded(); }
