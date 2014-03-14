@@ -318,7 +318,7 @@ int CMenus::DoEditBox(void *pID, const CUIRect *pRect, char *pStr, unsigned StrS
 		pDisplayStr = aStars;
 	}
 	
-	char aInputing[255] = {0};
+	char aInputing[32] = {0};
 	if(UI()->HotItem() == pID && Input()->GetIME())
 	{
 		str_format(aInputing, sizeof(aInputing), pStr);

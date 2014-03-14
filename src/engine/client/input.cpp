@@ -301,6 +301,11 @@ int CInput::Update()
 						m_IMEactivated = true;
 						str_format(m_pEditingText, sizeof(m_pEditingText), Event.edit.text);
 						m_EditingCursor = Event.edit.start;
+						for (int i = 0; i < Event.edit.start; i++)
+						{
+							if (m_pEditingText[i*3+1] < 32 || m_pEditingText[i*3+1] > 126)
+								m_EditingCursor += 2;
+ 						}
 						if (m_EditingCursor > strlen(m_pEditingText)) m_EditingCursor = strlen(m_pEditingText);
 					}
 					else
