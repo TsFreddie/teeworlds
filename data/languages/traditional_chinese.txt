@@ -1,0 +1,692 @@
+%d Bytes
+== %d 字節
+
+%d of %d servers, %d players
+== %d / %d 個伺服器, %d 個玩家
+
+%d%% loaded
+== 已加載 %d%%
+
+%ds left
+== 還剩%d秒
+
+%i minute left
+== 還剩下 %i 分鐘
+
+%i minutes left
+== 還剩下 %i 分鐘
+
+%i second left
+== 還剩下 %i 秒
+
+%i seconds left
+== 還剩下 %i 秒
+
+%s wins!
+== %s 勝利!
+
+-Page %d-
+== -第 %d 頁-
+
+Abort
+== 取消
+
+Add
+== 添加
+
+Add Friend
+== 添加好友
+
+Address
+== 地址
+
+All
+== 全部
+
+Alpha
+== 透明度
+
+Always show name plates
+== 總是顯示暱稱
+
+Are you sure that you want to delete the demo?
+== 你確定要刪除這個Demo嗎?
+
+Are you sure that you want to quit?
+== 你確定要退出嗎?
+
+Are you sure that you want to remove the player from your friends list?
+== 你確定要把這個玩家從好友列表中刪除嗎?
+
+As this is the first time you launch the game, please enter your nick name below. It's recommended that you check the settings to adjust them to your liking before joining a server.
+== 這是你第一次執行遊戲, 所以請在下面輸入你的暱稱. 建議你在進入一個伺服器之前, 先確認一下設定是否符合你的習慣.
+
+Automatically record demos
+== 自動記錄Demo
+
+Automatically take game over screenshot
+== 自動截取遊戲結束畫面
+
+Blue team
+== 藍隊
+
+Blue team wins!
+== 藍隊勝利!
+
+Body
+== 身體
+
+Borderless window
+== 無邊框窗口模式
+
+Call vote
+== 發起投票
+
+Change settings
+== 改變設定
+
+Chat
+== 聊天
+
+Clan
+== 團隊
+
+Client
+== 客戶端
+
+Close
+== 關閉
+
+Compatible version
+== 兼容的版本
+
+Connect
+== 連接
+
+Connecting to
+== 正在連接到
+
+Connection Problems...
+== 連接中斷...
+
+Console
+== 控制台
+
+Controls
+== 控制
+
+Count players only
+== 只統計玩家數
+
+Country
+== 國家/地區
+
+Crc:
+== Crc驗證碼:
+
+Created:
+== 已創建:
+
+Current
+== 當前
+
+Current version: %s
+== 當前版本: %s
+
+Custom colors
+== 自定義顏色
+
+Delete
+== 刪除
+
+Delete demo
+== 刪除Demo
+
+Demo details
+== Demo詳細資訊
+
+Demofile: %s
+== Demo文件: %s
+
+Demos
+== Demo
+
+Disconnect
+== 斷開連接
+
+Disconnected
+== 連接已斷開
+
+Display Modes
+== 顯示模式
+
+Downloading map
+== 正在下載地圖
+
+Draw!
+== 平局!
+
+Dynamic Camera
+== 動態鏡頭
+
+Emoticon
+== 表情
+
+Enter
+== 進入
+
+Error
+== 錯誤
+
+Error loading demo
+== 讀取Demo錯誤
+
+FSAA samples
+== 全景反鋸齒(FSAA)取樣倍數
+
+Favorite
+== 收藏
+
+Favorites
+== 收藏夾
+
+Feet
+== 腳
+
+Filter
+== 過濾器
+
+Fire
+== 開火
+
+Folder
+== 資料夾
+
+Force vote
+== 強制投票
+
+Free-View
+== 自由視角
+
+Friends
+== 朋友
+
+Fullscreen
+== 全景
+
+Game
+== 遊戲
+
+Game info
+== 遊戲資訊
+
+Game over
+== 遊戲結束
+
+Game paused
+== 遊戲已暫停
+
+Game type
+== 遊戲型别
+
+Game types:
+== 遊戲型別:
+
+General
+== 常規
+
+Graphics
+== 圖形
+
+Grenade
+== 榴彈
+
+Hammer
+== 鎚子
+
+Handle rendering async from updates
+== 更新時處理異步渲染
+
+Has people playing
+== 有人在玩
+
+High Detail
+== 地圖細節
+
+Hook
+== 鉤子
+
+Host address
+== 主機地址
+
+Hue
+== 色調
+
+Info
+== 資訊
+
+Internet
+== 因特網
+
+Invalid Demo
+== 無效的Demo文件
+
+Join blue
+== 加入藍隊
+
+Join game
+== 加入遊戲
+
+Join red
+== 加入紅隊
+
+Jump
+== 跳躍
+
+Kick player
+== 踢除玩家
+
+LAN
+== 局域網
+
+Language
+== 語言
+
+Length:
+== 長度:
+
+Lht.
+== 亮度
+
+Loading
+== 載入中
+
+MOTD
+== 公告欄
+
+Map
+== 地圖
+
+Map:
+== 地圖:
+
+Max Screenshots
+== 最大截圖數
+
+Max demos
+== 最大Demo數
+
+Maximum ping:
+== 最高延遲:
+
+Miscellaneous
+== 雜項
+
+Mouse sens.
+== 鼠標靈敏度
+
+Move left
+== 向左移動
+
+Move player to spectators
+== 將玩家移至觀眾席
+
+Move right
+== 向右移動
+
+Movement
+== 移動
+
+Mute when not active
+== 窗口不活動的時候靜音
+
+Name
+== 暱稱
+
+Name plates size
+== 暱稱顯示尺寸
+
+Netversion:
+== 網絡版本：
+
+New name:
+== 新名字:
+
+News
+== 新聞
+
+Next weapon
+== 下一個武器
+
+Nickname
+== 暱稱
+
+No
+== 否
+
+No password
+== 無密碼
+
+No servers found
+== 找不到任何伺服器
+
+No servers match your filter criteria
+== 沒有任何伺服器匹配你的過濾器
+
+Ok
+== 確定
+
+Open
+== 打開
+
+Parent Folder
+== 上級目錄
+
+Password
+== 密碼
+
+Password incorrect
+== 密碼錯誤
+
+Ping
+== 延遲
+
+Pistol
+== 手槍
+
+Play
+== 播放
+
+Play background music
+== 播放背景音樂
+
+Player
+== 玩家
+
+Player country:
+== 玩家的國家/地區:
+
+Player options
+== 玩家選項
+
+Players
+== 玩家
+
+Please balance teams!
+== 請平衡團隊人數!
+
+Prev. weapon
+== 上一個武器
+
+Quality Textures
+== 高品質紋理
+
+Quick search:
+== 快速搜索:
+
+Quit
+== 退出
+
+Quit anyway?
+== 真的要退出嗎?
+
+REC %3d:%02d
+== REC %3d:%02d
+
+Reason:
+== 理由:
+
+Record demo
+== 錄製Demo
+
+Red team
+== 紅隊
+
+Red team wins!
+== 紅隊勝利!
+
+Refresh
+== 刷新
+
+Refreshing master servers
+== 正在刷新主伺服器
+
+Remote console
+== 遠程控制台
+
+Remove
+== 移除
+
+Remove friend
+== 刪除好友
+
+Rename
+== 重命名
+
+Rename demo
+== 重命名Demo
+
+Reset filter
+== 重置過濾器
+
+Reset to defaults
+== 恢復默認設定
+
+Respawn
+== 重生
+
+Rifle
+== 激光槍
+
+Round
+== 回合
+
+Sample rate
+== 採樣率
+
+Sat.
+== 飽和度
+
+Score
+== 分數
+
+Score board
+== 得分榜
+
+Score limit
+== 分數限制
+
+Scoreboard
+== 得分榜
+
+Screenshot
+== 截圖
+
+Server address:
+== 伺服器地址:
+
+Server details
+== 伺服器詳細資訊
+
+Server filter
+== 伺服器過濾器
+
+Server info
+== 伺服器資訊
+
+Server not full
+== 伺服器未滿
+
+Settings
+== 設定
+
+Shotgun
+== 霰彈槍
+
+Show chat
+== 顯示聊天
+
+Show friends only
+== 只顯示好友
+
+Show ingame HUD
+== 顯示遊戲內 HUD
+
+Show name plates
+== 顯示暱稱
+
+Show only chat messages from friends
+== 只顯示好友消息
+
+Show only supported
+== 只顯示支持的
+
+Size:
+== 尺寸:
+
+Skins
+== 皮膚
+
+Sound
+== 聲音
+
+Sound error
+== 聲音出現錯誤
+
+Sound volume
+== 音量
+
+Spectate
+== 旁觀
+
+Spectate next
+== 觀看下一個
+
+Spectate previous
+== 觀看上一個
+
+Spectator mode
+== 旁觀者模式
+
+Spectators
+== 旁觀者
+
+Standard gametype
+== 標準遊戲型别
+
+Standard map
+== 標準地圖
+
+Stop record
+== 停止錄製
+
+Strict gametype filter
+== 嚴格過濾遊戲型别
+
+Sudden Death
+== 一槍定勝負
+
+Switch weapon on pickup
+== 拾取武器時自動裝備
+
+Team
+== 團隊
+
+Team chat
+== 團隊聊天
+
+Teeworlds %s is out! Download it at www.teeworlds.com!
+== 新版Teeworlds %s 已經發布! 請到www.teeworlds.com 下載最新版!
+
+Texture Compression
+== 紋理壓縮
+
+The audio device couldn't be initialised.
+== 無法初始化音頻設備。
+
+The server is running a non-standard tuning on a pure game type.
+== 此伺服器運行著經過調整的非標準遊戲型别。
+
+There's an unsaved map in the editor, you might want to save it before you quit the game.
+== 編輯器中的地圖尚未保存, 建議在退出遊戲之前保存一下。
+
+Threaded rendering
+== 多執行緒渲染
+
+Threaded sound loading
+== 多執行緒讀取聲音
+
+Time limit
+== 時間限制
+
+Time limit: %d min
+== 時間限制: %d 分鐘
+
+Try again
+== 重試
+
+Type
+== 型别
+
+Type:
+== 型别:
+
+UI Color
+== 介面顏色
+
+Unable to delete the demo
+== 無法刪除這個Demo
+
+Unable to rename the demo
+== 無法重命名這個Demo
+
+Use sounds
+== 啟用聲音
+
+Use team colors for name plates
+== 用隊伍顏色標識暱稱
+
+V-Sync
+== 垂直同步
+
+Version
+== 版本
+
+Version:
+== 版本:
+
+Vote command:
+== 投票指令:
+
+Vote description:
+== 投票描述:
+
+Vote no
+== 否決
+
+Vote yes
+== 贊成
+
+Voting
+== 投票
+
+Warmup
+== 熱身
+
+Weapon
+== 武器
+
+Welcome to Teeworlds
+== 歡迎來到 Teeworlds!
+
+Yes
+== 是
+
+You must restart the game for all settings to take effect.
+== 你必須重啟遊戲才能讓所有設定起效.
+
+Your skin
+== 你的皮膚
+
+no limit
+== 無限制

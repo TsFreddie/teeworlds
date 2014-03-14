@@ -76,6 +76,10 @@ serbian
 == Srpski
 == 688
 
+simplified_chinese
+== 简体中文
+== 156
+
 slovak
 == Slovensky
 == 703
@@ -87,6 +91,10 @@ spanish
 swedish
 == Svenska
 == 752
+
+traditional_chinese
+== 繁体中文
+== 344
 
 turkish
 == Türkçe
