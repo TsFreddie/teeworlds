@@ -300,13 +300,14 @@ int CInput::Update()
 					{
 						m_IMEactivated = true;
 						str_format(m_pEditingText, sizeof(m_pEditingText), Event.edit.text);
-						m_EditingCursor = Event.edit.start;
+						m_EditingCursor = 0;
 						for (int i = 0; i < Event.edit.start; i++)
 						{
-							if (m_pEditingText[i*3+1] < 32 || m_pEditingText[i*3+1] > 126)
-								m_EditingCursor += 2;
+							m_EditingCursor = str_utf8_forward(m_pEditingText, m_EditingCursor);
+							
  						}
-						if (m_EditingCursor > strlen(m_pEditingText)) m_EditingCursor = strlen(m_pEditingText);
+						//if (m_EditingCursor > strlen(m_pEditingText)) m_EditingCursor = strlen(m_pEditingText);
+						// str_utf8_forward() can prevent it from outrange
 					}
 					else
 						m_IMEactivated = false;

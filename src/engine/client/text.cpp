@@ -80,7 +80,7 @@ class CTextRender : public IEngineTextRender
 		{
 			if(*pText == 0)
 				return s-1;
-			if(*pText == '\n' || *pText == '\t' || *pText == ' ')
+			if(*pText == '\n' || *pText == '\t' || *pText == ' ' || str_utf8_check(pText))
 				return s;
 			pText++;
 			s++;
