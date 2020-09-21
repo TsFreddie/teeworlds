@@ -156,10 +156,10 @@ void CGlyphMap::InitTexture(int Width, int Height)
 	mem_free(pMem);
 }
 
-int CGlyphMap::FitGlyph(int Width, int Height, ivec2 *Position)
+int CGlyphMap::FitGlyph(int Width, int Height, ivec2 *pPosition)
 {
-	*Position = m_aAtlasPages[m_ActiveAtlasIndex].Add(Width, Height);
-	if(Position->x >= 0 && Position->y >= 0)
+	*pPosition = m_aAtlasPages[m_ActiveAtlasIndex].Add(Width, Height);
+	if(pPosition->x >= 0 && pPosition->y >= 0)
 		return m_ActiveAtlasIndex;
 
 	// out of space, drop a page
@@ -189,8 +189,10 @@ int CGlyphMap::FitGlyph(int Width, int Height, ivec2 *Position)
 
 	UploadGlyph(0, X, Y, W, H, pMem);
 
+	mem_free(pMem);
+
 	m_aAtlasPages[Atlas].Init(m_NumTotalPages++, X, Y, W, H);
-	*Position = m_aAtlasPages[Atlas].Add(Width, Height);
+	*pPosition = m_aAtlasPages[Atlas].Add(Width, Height);
 	m_ActiveAtlasIndex = Atlas;
 
 	dbg_msg("textrender", "atlas is full, dropping atlas %d, total pages: %u", Atlas, m_NumTotalPages);
@@ -346,7 +348,7 @@ bool CGlyphMap::RenderGlyph(CGlyph *pGlyph, bool Render)
 
 	FT_Face GlyphFace;
 	int GlyphIndex = GetCharGlyph(pGlyph->m_ID, &GlyphFace);
-	int FontSize = aFontSizes[pGlyph->m_FontSizeIndex];
+	int FontSize = s_aFontSizes[pGlyph->m_FontSizeIndex];
 	FT_Set_Pixel_Sizes(GlyphFace, 0, FontSize);
 
 	if(FT_Load_Glyph(GlyphFace, GlyphIndex, FT_LOAD_NO_BITMAP))
@@ -406,10 +408,10 @@ bool CGlyphMap::RenderGlyph(CGlyph *pGlyph, bool Render)
 		m_aAtlasPages[AtlasIndex].Touch();
 
 		float UVscale = 1.0f / TEXTURE_SIZE;
-		pGlyph->m_aUvs[0] = (Position.x + Spacing) * UVscale;
-		pGlyph->m_aUvs[1] = (Position.y + Spacing) * UVscale;
-		pGlyph->m_aUvs[2] = pGlyph->m_aUvs[0] + OutlinedWidth * UVscale;
-		pGlyph->m_aUvs[3] = pGlyph->m_aUvs[1] + OutlinedHeight * UVscale;
+		pGlyph->m_aUvCoords[0] = (Position.x + Spacing) * UVscale;
+		pGlyph->m_aUvCoords[1] = (Position.y + Spacing) * UVscale;
+		pGlyph->m_aUvCoords[2] = pGlyph->m_aUvCoords[0] + OutlinedWidth * UVscale;
+		pGlyph->m_aUvCoords[3] = pGlyph->m_aUvCoords[1] + OutlinedHeight * UVscale;
 	}
 
 	float Scale = 1.0f / FontSize;
@@ -476,7 +478,7 @@ int CGlyphMap::GetFontSizeIndex(int PixelSize)
 {
 	for(unsigned i = 0; i < NUM_FONT_SIZES; i++)
 	{
-		if(aFontSizes[i] >= PixelSize)
+		if(s_aFontSizes[i] >= PixelSize)
 			return i;
 	}
 
@@ -781,11 +783,11 @@ void CTextRender::LoadFonts(IStorage *pStorage, IConsole *pConsole)
 		{
 			char aFileName[128];
 			str_format(aFileName, sizeof(aFileName), "languages/%s.json", (const char *)Entries[i].name);
-			strncpy(m_paVariants[i].m_aLanguageFile, aFileName, sizeof(m_paVariants[i].m_aLanguageFile));
+			str_copy(m_paVariants[i].m_aLanguageFile, aFileName, sizeof(m_paVariants[i].m_aLanguageFile));
 
 			json_value *pFamilyName = rVariant.u.object.values[i].value;
 			if(pFamilyName->type == json_string)
-				strncpy(m_paVariants[i].m_aFamilyName, pFamilyName->u.string.ptr, sizeof(m_paVariants[i].m_aFamilyName));
+				str_copy(m_paVariants[i].m_aFamilyName, pFamilyName->u.string.ptr, sizeof(m_paVariants[i].m_aFamilyName));
 			else
 				m_paVariants[i].m_aFamilyName[0] = 0;
 		}
@@ -834,9 +836,12 @@ void CTextRender::TextSecondaryColor(float r, float g, float b, float a)
 
 float CTextRender::TextWidth(float FontSize, const char *pText, int Length)
 {
-	CTextCursor Cursor(FontSize, 0, 0, TEXTFLAG_NO_RENDER);
-	TextDeferred(&Cursor, pText, Length);
-	return Cursor.m_Width;
+	static CTextCursor s_Cursor;
+	s_Cursor.m_FontSize = FontSize;
+	s_Cursor.m_Flags = TEXTFLAG_NO_RENDER;
+	s_Cursor.Reset();
+	TextDeferred(&s_Cursor, pText, Length);
+	return s_Cursor.m_Width;
 }
 
 void CTextRender::TextDeferred(CTextCursor *pCursor, const char *pText, int Length)
@@ -1054,10 +1059,13 @@ void CTextRender::TextNewline(CTextCursor *pCursor)
 void CTextRender::TextAdvance(CTextCursor *pCursor, float AdvanceX)
 {
 	int LineWidth = pCursor->m_Advance.x + AdvanceX;
-	if(LineWidth > pCursor->m_MaxWidth)
+	float MaxWidth = pCursor->m_MaxWidth;
+	if(MaxWidth < 0)
+		MaxWidth = INFINITY;
+	if(LineWidth > MaxWidth)
 	{
 		TextNewline(pCursor);
-		pCursor->m_Advance.x = LineWidth - pCursor->m_MaxWidth;
+		pCursor->m_Advance.x = LineWidth - MaxWidth;
 	}
 	else
 	{
@@ -1131,7 +1139,7 @@ void CTextRender::DrawText(CTextCursor *pCursor, vec2 Offset, int Texture, bool 
 			LastColor = Color;
 		}
 
-		Graphics()->QuadsSetSubset(pGlyph->m_aUvs[0], pGlyph->m_aUvs[1], pGlyph->m_aUvs[2], pGlyph->m_aUvs[3]);
+		Graphics()->QuadsSetSubset(pGlyph->m_aUvCoords[0], pGlyph->m_aUvCoords[1], pGlyph->m_aUvCoords[2], pGlyph->m_aUvCoords[3]);
 
 		vec2 QuadPosition = Anchor + LineOffset + rScaled.m_Advance + vec2(pGlyph->m_BearingX, pGlyph->m_BearingY) * rScaled.m_Size;
 		IGraphics::CQuadItem QuadItem = IGraphics::CQuadItem(QuadPosition.x, QuadPosition.y, pGlyph->m_Width * rScaled.m_Size, pGlyph->m_Height * rScaled.m_Size);

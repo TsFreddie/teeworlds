@@ -977,13 +977,14 @@ void CChat::OnRender()
 			if(ChatMode == CHAT_WHISPER)
 			{
 				//render helper annotation
-				static CTextCursor s_InfoCursor(CategoryFontSize*0.75);
-				s_InfoCursor.MoveTo(2.0f, y+12.0f);
+				static CTextCursor s_HelpCursor(CategoryFontSize*0.75);
+				s_HelpCursor.Reset();
+				s_HelpCursor.MoveTo(2.0f, y+12.0f);
 
 				char aInfoText[128];
 				str_format(aInfoText, sizeof(aInfoText), Localize("Press Tab to cycle chat recipients"));
 				TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.5f);
-				TextRender()->TextOutlined(&s_InfoCursor, aInfoText, -1);
+				TextRender()->TextOutlined(&s_HelpCursor, aInfoText, -1);
 			}
 			
 			TextRender()->DrawTextOutlined(&m_InputCursor);
@@ -1312,22 +1313,16 @@ void CChat::OnRender()
 		else
 			TextColor = ColorAllText;
 
+		TextRender()->TextColor(TextColor);
 		if(pLine->m_Highlighted)
 		{
-			TextRender()->TextColor(TextColor.r, TextColor.g, TextColor.b, TextColor.a);
-
-			TextRender()->TextSecondaryColor(ColorHighlightOutline.r,
-										   ColorHighlightOutline.g,
-										   ColorHighlightOutline.b,
-										   ColorHighlightOutline.a);
-
+			TextRender()->TextSecondaryColor(ColorHighlightOutline);
 			TextRender()->TextDeferred(&s_ChatCursor, pLine->m_aText, -1);
 			TextRender()->DrawTextShadowed(&s_ChatCursor, ShadowOffset, Blend, 0, NumNameGlyphs);
 			TextRender()->DrawTextOutlined(&s_ChatCursor, Blend, NumNameGlyphs, -1);
 		}
 		else
 		{
-			TextRender()->TextColor(TextColor);
 			TextRender()->TextSecondaryColor(ShadowColor);
 			TextRender()->TextDeferred(&s_ChatCursor, pLine->m_aText, -1);
 			TextRender()->DrawTextShadowed(&s_ChatCursor, ShadowOffset, Blend);
