@@ -1667,7 +1667,10 @@ void CEditor2::RenderMapEditorUiLayerGroups(CUIRect NavRect)
 
 			m_UiSelectedGroupID = GroupID;
 			if(Group.m_LayerCount > 0)
+			{
 				m_UiSelectedLayerID = Group.m_apLayerIDs[0];
+				HistoryNewEntry("Change Layer", "TBD", true);
+			}
 			else
 				m_UiSelectedLayerID = -1;
 		}
@@ -1768,6 +1771,7 @@ void CEditor2::RenderMapEditorUiLayerGroups(CUIRect NavRect)
 					{
 						m_UiSelectedLayerID = LyID;
 						m_UiSelectedGroupID = GroupID;
+						HistoryNewEntry("Change Layer", "TBD", true);
 					}
 				}
 
@@ -3642,6 +3646,7 @@ void CEditor2::SelectLayerBelowCurrentOne()
 
 	if(Group.m_LayerCount > 1) {
 		m_UiSelectedLayerID = Group.m_apLayerIDs[(LayerPos+1) % Group.m_LayerCount];
+		HistoryNewEntry("Change Layer", "TBD", true);
 		dbg_assert(m_Map.m_aLayers.IsValid(m_UiSelectedLayerID), "m_UiSelectedLayerID is invalid");
 	}
 	else {
@@ -4139,16 +4144,26 @@ void CEditor2::HistoryDeallocEntry(CEditor2::CHistoryEntry *pEntry)
 	m_aHistoryEntryUsed[Index] = 0;
 }
 
-void CEditor2::HistoryNewEntry(const char* pActionStr, const char* pDescStr)
+void CEditor2::HistoryNewEntry(const char* pActionStr, const char* pDescStr, bool UiOnly)
 {
 	m_MapSaved = false;
 
 	CHistoryEntry* pEntry;
-	pEntry = HistoryAllocEntry();
-	pEntry->m_pSnap = m_Map.SaveSnapshot();
-	pEntry->m_pUiSnap = SaveUiSnapshot();
-	pEntry->SetAction(pActionStr);
-	pEntry->SetDescription(pDescStr);
+	if(UiOnly && m_pHistoryEntryCurrent->m_UiOnly)
+	{
+		pEntry = m_pHistoryEntryCurrent;
+		mem_free(m_pHistoryEntryCurrent->m_pUiSnap);
+		m_pHistoryEntryCurrent->m_pUiSnap = SaveUiSnapshot();
+	}
+	else
+	{
+		pEntry = HistoryAllocEntry();
+		pEntry->m_pSnap = m_Map.SaveSnapshot();
+		pEntry->m_pUiSnap = SaveUiSnapshot();
+		pEntry->SetAction(pActionStr);
+		pEntry->SetDescription(pDescStr);
+		pEntry->m_UiOnly = UiOnly;
+	}
 
 	// delete all the next entries from current
 	CHistoryEntry* pCur = m_pHistoryEntryCurrent->m_pNext;
@@ -4159,9 +4174,12 @@ void CEditor2::HistoryNewEntry(const char* pActionStr, const char* pDescStr)
 		HistoryDeallocEntry(pToDelete);
 	}
 
-	m_pHistoryEntryCurrent->m_pNext = pEntry;
-	pEntry->m_pPrev = m_pHistoryEntryCurrent;
-	m_pHistoryEntryCurrent = pEntry;
+	if(!(UiOnly && m_pHistoryEntryCurrent->m_UiOnly))
+	{
+		m_pHistoryEntryCurrent->m_pNext = pEntry;
+		pEntry->m_pPrev = m_pHistoryEntryCurrent;
+		m_pHistoryEntryCurrent = pEntry;
+	}
 }
 
 void CEditor2::HistoryRestoreToEntry(CHistoryEntry* pEntry)
