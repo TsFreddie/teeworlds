@@ -482,6 +482,7 @@ class CEditor2: public IEditor, public CEditor2Ui
 	CHistoryEntry* HistoryAllocEntry();
 	void HistoryDeallocEntry(CHistoryEntry* pEntry);
 	void HistoryNewEntry(const char* pActionStr, const char* pDescStr);
+	void HistoryUpdateEntryUiState();
 	void HistoryRestoreToEntry(CHistoryEntry* pEntry);
 	void HistoryUndo();
 	void HistoryRedo();

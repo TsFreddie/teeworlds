@@ -1670,6 +1670,7 @@ void CEditor2::RenderMapEditorUiLayerGroups(CUIRect NavRect)
 				m_UiSelectedLayerID = Group.m_apLayerIDs[0];
 			else
 				m_UiSelectedLayerID = -1;
+			HistoryUpdateEntryUiState();
 		}
 
 		const bool IsSelected = m_UiSelectedGroupID == GroupID;
@@ -1768,6 +1769,7 @@ void CEditor2::RenderMapEditorUiLayerGroups(CUIRect NavRect)
 					{
 						m_UiSelectedLayerID = LyID;
 						m_UiSelectedGroupID = GroupID;
+						HistoryUpdateEntryUiState();
 					}
 				}
 
@@ -1927,6 +1929,7 @@ void CEditor2::RenderMapEditorUiLayerGroups(CUIRect NavRect)
 				{
 					m_UiSelectedGroupID = m_Map.m_aGroupIDList[NewGroupListIndex];
 					m_UiSelectedLayerID = -1;
+					HistoryUpdateEntryUiState();
 				}
 			}
 			else if(DragMoveLayerListIndex != -1)
@@ -3648,6 +3651,7 @@ void CEditor2::SelectLayerBelowCurrentOne()
 		m_UiSelectedLayerID = -1;
 	}
 
+	HistoryUpdateEntryUiState();
 	// slightly overkill
 	dbg_assert(m_Map.m_aGroups.IsValid(m_UiSelectedGroupID), "m_UiSelectedGroupID is invalid");
 }
@@ -4162,6 +4166,12 @@ void CEditor2::HistoryNewEntry(const char* pActionStr, const char* pDescStr)
 	m_pHistoryEntryCurrent->m_pNext = pEntry;
 	pEntry->m_pPrev = m_pHistoryEntryCurrent;
 	m_pHistoryEntryCurrent = pEntry;
+}
+
+void CEditor2::HistoryUpdateEntryUiState()
+{
+	mem_free(m_pHistoryEntryCurrent->m_pUiSnap);
+	m_pHistoryEntryCurrent->m_pUiSnap = SaveUiSnapshot();
 }
 
 void CEditor2::HistoryRestoreToEntry(CHistoryEntry* pEntry)
