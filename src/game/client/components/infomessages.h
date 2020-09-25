@@ -14,20 +14,12 @@ class CInfoMessages : public CComponent
 	
 		// victim / finishing player
 		int m_Player1ID;
-<<<<<<< HEAD
-		char m_aPlayer1Name[MAX_NAME_LENGTH*UTF8_BYTE_LENGTH];
-=======
 		CTextCursor m_Player1NameCursor;
->>>>>>> 330216c9... add back informessages
 		CTeeRenderInfo m_Player1RenderInfo;
 
 		// killer
 		int m_Player2ID;
-<<<<<<< HEAD
-		char m_aPlayer2Name[MAX_NAME_LENGTH*UTF8_BYTE_LENGTH];
-=======
 		CTextCursor m_Player2NameCursor;
->>>>>>> 330216c9... add back informessages
 		CTeeRenderInfo m_Player2RenderInfo;
 
 		// kill msg
