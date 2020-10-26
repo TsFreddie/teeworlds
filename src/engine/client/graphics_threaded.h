@@ -74,6 +74,11 @@ public:
 		CMD_TEXTURE_DESTROY,
 		CMD_TEXTURE_UPDATE,
 
+		// stencil commands
+		CMD_STENCIL_BEGIN,
+		CMD_STENCIL_END,
+		CMD_STENCIL_CLEAR,
+
 		// rendering
 		CMD_CLEAR,
 		CMD_RENDER,
@@ -244,6 +249,21 @@ public:
 		int m_Slot;
 	};
 
+	struct CStencilBeginCommand : public CCommand
+	{
+		CStencilBeginCommand() : CCommand(CMD_STENCIL_BEGIN) {}
+	};
+
+	struct CStencilEndCommand : public CCommand
+	{
+		CStencilEndCommand() : CCommand(CMD_STENCIL_END) {}
+	};
+
+	struct CStencilClearCommand : public CCommand
+	{
+		CStencilClearCommand() : CCommand(CMD_STENCIL_CLEAR) {}
+	};
+
 	//
 	CCommandBuffer(unsigned CmdBufferSize, unsigned DataBufferSize)
 	: m_CmdBuffer(CmdBufferSize), m_DataBuffer(DataBufferSize)
@@ -386,6 +406,10 @@ public:
 
 	virtual void ClipEnable(int x, int y, int w, int h);
 	virtual void ClipDisable();
+
+	virtual void StencilBegin();
+	virtual void StencilEnd();
+	virtual void StencilClear();
 
 	virtual void BlendNone();
 	virtual void BlendNormal();
